@@ -1,72 +1,39 @@
-# Development guide
+# Development
 
-Этот проект ограничен ATmega328P: 32 KB flash и 2 KB RAM. Поэтому стандарт
-разработки здесь не про красивую архитектуру любой ценой, а про контролируемые
-маленькие изменения, проверяемую сборку и понятную цену каждой функции.
+## Baseline
 
-## Рабочий цикл
-
-1. Перед изменениями понять, какой модуль затрагивается.
-2. Делать маленький патч.
-3. Собирать baseline:
+Primary build:
 
 ```bash
 platformio run -e uno
 ```
 
-4. Если менялась опциональная функция, собрать ее профиль:
+Local cache variant:
 
 ```bash
-platformio run -e uno_no_cat
-platformio run -e uno_no_swr
+PLATFORMIO_CORE_DIR=.pio-core PLATFORMIO_SETTING_ENABLE_TELEMETRY=No platformio run -e uno
 ```
 
-5. Обновить `MEMORY.md`, если изменились RAM/Flash.
-6. Обновить `docs/USER_GUIDE_RU.md`, если менялось управление, меню или
-   пользовательские значения по умолчанию.
+## Workflow
 
-## Стиль кода
+1. Make a small change.
+2. Build `uno`.
+3. If a feature flag changed, build the matching profile from `platformio.ini`.
+4. If flash/RAM changed materially, update `MEMORY.md`.
+5. If user-visible behavior changed, update `docs/USER_GUIDE_RU.md`.
+6. If fork-level behavior changed, update `CHANGELOG.md`.
 
-- Существующий `.ino` не форматировать целиком.
-- Новые функции делать короткими и локальными к модулю.
-- Для строк, уходящих в flash, использовать `F("...")`, когда это возможно.
-- На AVR избегать `sprintf()`, `String`, динамической памяти и больших локальных
-  буферов на стеке.
-- Макросы, нужные только в одном блоке, убирать через `#undef` после использования.
-- Runtime-проверки добавлять только там, где они реально защищают от поломки:
-  каждый байт flash важен.
+## Rules
 
-## CAT parser
+- Do not reformat the whole `.ino`.
+- Prefer compile-time switches over runtime branches when a feature is optional.
+- Prefer `F("...")` for UI strings on AVR.
+- Avoid `sprintf()`, `String`, dynamic allocation, and large stack buffers.
+- Check flash impact of every new UI string and CAT response.
 
-- Буфер CAT: `CATCMD_SIZE = 16`.
-- Перед добавлением новой команды проверить максимальную длину с `;` и NUL.
-- Частоты печатать через легкие helper-функции, не через `sprintf()`.
-- Не расширять фиксированные ответы без необходимости: каждая строка занимает
-  flash, а часть программ просто ожидает совместимый короткий ответ.
+## Before Flashing
 
-## PlatformIO
-
-`platformio.ini` держит:
-
-- `uno` - основная сборка;
-- `uno_no_*` - измерительные профили для оценки цены модулей.
-
-Если добавляется новый отключаемый модуль, нужно:
-
-1. добавить `USDX_DISABLE_*` обработку в конфигурационном блоке прошивки;
-2. добавить отдельный `[env:uno_no_*]` в `platformio.ini`;
-3. замерить RAM/Flash;
-4. обновить `MEMORY.md`.
-
-## Ревью перед заливкой
-
-Проверить:
-
-- baseline собирается;
-- нет новых `error:` и неожиданных warning;
-- flash не приблизился к 32256 B вплотную;
-- RAM имеет запас под стек;
-- изменения не трогают тайминги DSP/RX/TX без причины;
-- документация обновлена, если менялись профили или модули.
-- пользовательское руководство обновлено, если менялись кнопки, меню, экран,
-  CW/CAT, автопрокрутка или compile-time опции.
+- `uno` must build successfully.
+- Flash must still fit comfortably inside `32256 B`.
+- No unexpected new warnings.
+- If EEPROM defaults changed, note that in the user guide.

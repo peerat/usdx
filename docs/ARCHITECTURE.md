@@ -1,43 +1,56 @@
-# Firmware architecture
+# Architecture
 
-`R3VAF_uSDR_7_01v.ino` - монолитная Arduino-прошивка. Для ATmega328P это нормально:
-разделение на много файлов иногда ухудшает видимость Arduino-прототипов и может
-изменить результат линковки. Поэтому текущий стандарт - держать структуру
-понятной документацией и локальными блоками `#ifdef`.
+## Ownership
 
-## Основные зоны
+- Current fork and maintenance: Peerat
+- Current GitHub repo: `https://github.com/peerat/usdx`
+- Base project: `https://github.com/threeme3/QCX-SSB`
+- Base DSP/firmware author: Guido PE1NNZ
+- Prior major modification layer preserved in this fork: Rob Colclough GW8RDI
 
-| Зона | Ответственность |
+## Repository
+
+| Path | Purpose |
 | --- | --- |
-| Hardware/config defines | Выбор модели, частот, пинов, дисплея, CAT, CW, SWR, LPF |
-| Low-level IO | LCD/OLED, I2C bit-bang, ADC, кнопки, энкодер, GPIO |
-| Si5351/VFO | Расчет и запись частот, фазы I/Q, RX/TX частоты |
-| RX DSP | I/Q sampling, фильтры, AGC, NR, S-meter |
-| TX path | Модуляция, PWM, CW TX, PTT, переход RX/TX |
-| UI/menu | LCD-баннеры, меню параметров, сохранение EEPROM |
-| CAT | Serial-команды управления и ответы для внешнего софта |
-| Optional modules | SWR, CW decoder, keyer, RIT, LPF switching, CAT, QUAD и другие compile-time опции |
-| Auto tune | Инерционная автопрокрутка частоты и остановка по уровню `ScanStop` |
+| `R3VAF_uSDR_7_01v.ino` | Main firmware source |
+| `platformio.ini` | Build profiles |
+| `MEMORY.md` | Size map |
+| `CHANGELOG.md` | Important fork changes |
+| `LICENSE.md` | Source and license notes |
+| `docs/USER_GUIDE_RU.md` | User-facing guide |
+| `docs/DEVELOPMENT.md` | Dev workflow |
+| `tools/size_profiles.sh` | Batch build helper |
 
-## Зависимости между модулями
+## Firmware Structure
 
-- CAT зависит от Serial, UI-состояния, VFO и TX/RX переключения.
-- RIT зависит от VFO/Si5351 и используется частью CAT-команд.
-- SWR зависит от TX-состояния и ADC.
-- CW decoder зависит от RX audio/DSP и UI.
-- Keyer зависит от кнопок/ADC, TX path и CW timing.
-- LPF switching зависит от текущей частоты/диапазона и I2C.
-- ScanStop зависит от автопрокрутки, текущего VFO и уровня S-meter/dBm.
+`R3VAF_uSDR_7_01v.ino` remains a single-file AVR firmware on purpose.
 
-## Правило экономии памяти
+Main zones:
 
-Опциональный модуль должен быть закрыт `#ifdef`, а его отключение должно
-удалять и код, и связанные данные. Если после отключения остаются `unused`
-переменные, значит блок можно подчистить глубже.
+- Transformer config layer:
+  hardware, display, TX wiring, input mode, feature flags, build overrides.
+- Low-level IO:
+  LCD/OLED, I2C bit-bang, ADC, GPIO, encoder.
+- Si5351 / VFO:
+  frequency calculation and clock programming.
+- RX DSP:
+  sampling, filtering, AGC, NR, S-meter.
+- TX path:
+  modulation, CW TX, PTT, RX/TX switching.
+- UI and menu:
+  screen render, parameter edit, EEPROM state.
+- CAT:
+  serial control protocol.
 
-## Рискованные зоны
+## Supported Build Axes
 
-- DSP и ISR-подобные пути: маленькая правка может изменить звук или загрузку CPU.
-- Макросы с присваиванием: вызывать как statement, без внешнего `=`.
-- Повторные `#define` в конфиге: первое видимое значение не всегда финальное.
-- Большие строки и форматтеры: легко съедают последний flash.
+- Hardware preset: `USDX_HW_*`
+- Display/UI preset: `USDX_UI_*`
+- TX wiring: `USDX_TX_*`
+- Input mode: `USDX_INPUT_*`
+- Feature disable overrides: `USDX_DISABLE_*`
+
+## Constraint
+
+ATmega328P leaves very little flash/RAM headroom, so structure here is optimized
+for predictable builds, not for aggressive file-splitting.

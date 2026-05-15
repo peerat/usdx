@@ -10,6 +10,13 @@ PIO_BIN="${PIO_BIN:-pio}"
 
 profiles=(
   uno
+  uno_size_headroom
+  uno_size_tight
+  uno_size_digital
+  uno_oled_ssd1306_cat_slim
+  uno_oled_sh1106_cat_slim
+  uno_oled_ssd1306_cat_tight
+  uno_oled_sh1106_cat_tight
   uno_no_swr
   uno_no_lpf
   uno_no_cw_decoder

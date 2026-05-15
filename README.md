@@ -1,175 +1,65 @@
-# uSDX / uSDR firmware fork
+# uSDX / uSDR Firmware Fork
 
-Это рабочий форк прошивки uSDX/uSDR на базе `R3VAF_uSDR_7_01v.ino` для
-ATmega328P/Arduino Uno target.
+Рабочий форк прошивки uSDX/uSDR для ATmega328P/Arduino Uno.
 
-Форк ведется как практичная версия под конкретное радио: с сохранением сборки в
-PlatformIO, контролем расхода flash/RAM и отдельными правками интерфейса,
-дефолтов, CW-декодера, экрана и управления валкодером. Это не upstream-
-репозиторий оригинальной прошивки.
+## Ownership
 
-Публичный статус этого репозитория предполагается как рабочий форк R3VAF:
-сначала фиксируется стабильная практическая версия, затем на ее базе
-постепенно готовится более модульная "прошивка-трансформер" с профилями и
-включаемыми функциями.
+- Current fork and maintenance: Peerat
+- Current GitHub repo: `https://github.com/peerat/usdx`
+- Base source project: `https://github.com/threeme3/QCX-SSB`
+- Base DSP/firmware author: Guido PE1NNZ
+- Prior major modification layer preserved in this fork: Rob Colclough GW8RDI
+- License and origin notes: [LICENSE.md](/home/peerat/projects/usdx/LICENSE.md)
 
-## Быстрый старт
+Проект держится как практичная рабочая прошивка под реальное радио и как база
+для compile-time "трансформера" с hardware/UI/size профилями.
+
+## Status
+
+- Main firmware: `R3VAF_uSDR_7_01v.ino`
+- Current baseline profile: `uno`
+- Current baseline build: `Flash 32056 / 32256`, `RAM 1396 / 2048`
+- Default `ScanStop`: `+3 dB`
+
+## Build
 
 ```bash
 platformio run -e uno
 ```
 
-Если PlatformIO пытается писать в глобальный кеш без прав, можно использовать
-локальный каталог:
+Если нужен локальный PlatformIO cache:
 
 ```bash
 PLATFORMIO_CORE_DIR=.pio-core PLATFORMIO_SETTING_ENABLE_TELEMETRY=No platformio run -e uno
 ```
 
-Успешная baseline-сборка на текущей конфигурации:
+## Project Structure
 
-| Память | Использовано |
-| --- | ---: |
-| RAM | 1440 B / 2048 B |
-| Flash | 31504 B / 32256 B |
-
-## Структура
-
-| Путь | Назначение |
+| Path | Purpose |
 | --- | --- |
-| `R3VAF_uSDR_7_01v.ino` | Основная прошивка: конфигурация железа, DSP, UI, CAT, TX/RX |
-| `platformio.ini` | PlatformIO environments для baseline и size-профилей |
-| `MEMORY.md` | Карта модулей и таблица экономии памяти |
-| `CHANGELOG.md` | Журнал изменений этого форка |
-| `docs/USER_GUIDE_RU.md` | Краткая пользовательская документация на русском |
-| `docs/DEVELOPMENT.md` | Правила разработки и проверки изменений |
-| `docs/ARCHITECTURE.md` | Высокоуровневая карта модулей прошивки |
-| `tools/size_profiles.sh` | Сборка всех профилей и вывод RAM/Flash |
+| `R3VAF_uSDR_7_01v.ino` | Main firmware |
+| `platformio.ini` | Build profiles: baseline, smoke-test, size-first |
+| `MEMORY.md` | Flash/RAM map and size profiles |
+| `CHANGELOG.md` | Important fork-level changes only |
+| `LICENSE.md` | Source and license notes |
+| `docs/USER_GUIDE_RU.md` | User guide and live-board bring-up |
+| `docs/ARCHITECTURE.md` | Firmware and repo structure |
+| `docs/DEVELOPMENT.md` | Development workflow |
+| `tools/size_profiles.sh` | Batch size check |
 
-## Что изменено в форке
+## Build Profiles
 
-- Меню разделено на английские подменю `General`, `RX`, `TX`, `CW`.
-- Левая кнопка открывает меню; верхняя строка показывает текущий раздел,
-  нижняя - параметр и значение. Цифровые номера пунктов скрыты.
-- Валкодер листает параметры; при переходе через край раздела меню переходит
-  в следующий или предыдущий раздел. Кнопка валкодера только входит в
-  редактирование выбранного пункта и сохраняет значение.
-- В обычном режиме кнопка валкодера больше не открывает меню: короткое нажатие
-  меняет разряд перестройки, длинное - шаг назад, двойное - диапазон.
-- Во время автосканирования любое действие валкодером только останавливает
-  сканирование.
-- Добавлена инерционная автопрокрутка частоты по темпу вращения валкодера.
-- Добавлен пункт `RX -> ScanStp`: отключаемая адаптивная остановка
-  автопрокрутки по подъему сигнала над текущим фоном. При найденном сигнале
-  прошивка подтверждает уровень, ждет около 10 секунд и затем продолжает скан.
-- CW-декодер доработан под нестандартные паузы между элементами и знаками.
-- В CW-режиме строка декодера показывает текст, а не только верхний баннер.
-- CW-диагностический вывод отключен, чтобы в CW не перекрывать экран служебным
-  hex/тайминг-текстом.
-- QUAD, VOX и Semi-QSK сейчас выведены из активной конфигурации и включаются
-  только вручную через `#define`, если они реально нужны.
-- Дефолты подстроены под работу с FT8/CW/SSB на текущем радио.
+- `uno`: baseline firmware
+- `uno_no_*`: one-feature measurement profiles
+- `uno_hw_*`: hardware smoke-test profiles
+- `uno_ui_*`: display/UI smoke-test profiles
+- `uno_size_*`: practical low-flash profiles
 
-## Текущий статус
+Подробности по памяти: [MEMORY.md](/home/peerat/projects/usdx/MEMORY.md)
 
-Текущая ветка `7.01v` - это зафиксированная рабочая база перед переходом к
-более модульной версии прошивки. Следующий крупный этап - перевод функций в
-единый конфиг-слой, чтобы собирать разные варианты прошивки без ручной правки
-кода по всему файлу.
+## Docs
 
-Подробности по пользовательским настройкам: `docs/USER_GUIDE_RU.md`.
-История правок: `CHANGELOG.md`.
-
-## Значения по умолчанию
-
-### General
-
-| Параметр | Значение |
-| --- | --- |
-| VFO A | 7074 kHz, USB |
-| VFO B | 14074 kHz, USB |
-| Старт | VFO A |
-| Band | 40m |
-| Volume | 9 |
-| RIT | OFF |
-| CAT | ON |
-| Light | ON |
-
-### RX
-
-| Параметр | Значение |
-| --- | --- |
-| Mode | USB |
-| Filter SSB/FT8 | Full |
-| Filter CW | 500 |
-| Step SSB/FT8 | 1k |
-| Step CW | 500 |
-| AGC | OFF |
-| NR | 0 |
-| ATT | 0dB |
-| ATT2 | 0 |
-| S-Meter | dBm |
-| ScanStop | OFF |
-| SWR Meter | FwdSWR |
-
-### TX
-
-| Параметр | Значение |
-| --- | --- |
-| TX Drive | 8 после старта |
-| PA bias min | 0 |
-| PA max | 220 |
-| Practice | OFF |
-
-### CW
-
-| Параметр | Значение |
-| --- | --- |
-| CW Decoder | ON |
-| Keyer Speed | 20 WPM |
-| Keyer | IambicA |
-| Keyer Swap | OFF |
-| Tone Vol | 11 |
-| CW Tone | 600 Hz, если позже включить пункт `FILTER_700HZ` |
-
-Важно: если в EEPROM уже лежат старые настройки, они перекроют новые дефолты.
-После прошивки нужно сбросить настройки/EEPROM, чтобы применились значения из
-этого форка.
-
-## Профили сборки
-
-Baseline:
-
-```bash
-platformio run -e uno
-```
-
-Измерительные профили:
-
-```bash
-platformio run -e uno_no_swr
-platformio run -e uno_no_cw_decoder
-platformio run -e uno_no_cat
-```
-
-Все профили `uno_no_*` отключают один модуль и нужны, чтобы понимать цену
-функций в flash/RAM. Подробности: `MEMORY.md`.
-
-## Правила изменений
-
-- Не форматировать весь `R3VAF_uSDR_7_01v.ino` целиком: файл исторический и большой.
-- Новые изменения держать маленькими и проверять `platformio run -e uno`.
-- Для экономии памяти сначала смотреть на `CAT`, `CW_DECODER`, `SWR_METER`,
-  `KEYER`; мелкие модули дают меньше.
-- Для новых CAT-команд учитывать лимит `CATCMD_SIZE`.
-- Не удалять `freeMemory()` без проверки сборки: он помогает Arduino/PlatformIO
-  preprocessing держать прототипы функций видимыми.
-
-## Проверка памяти
-
-```bash
-tools/size_profiles.sh
-```
-
-Скрипт последовательно собирает baseline и `uno_no_*` профили, оставляя в выводе
-главные строки `RAM:` и `Flash:`.
+- User guide: [docs/USER_GUIDE_RU.md](/home/peerat/projects/usdx/docs/USER_GUIDE_RU.md)
+- Architecture: [docs/ARCHITECTURE.md](/home/peerat/projects/usdx/docs/ARCHITECTURE.md)
+- Development: [docs/DEVELOPMENT.md](/home/peerat/projects/usdx/docs/DEVELOPMENT.md)
+- Changelog: [CHANGELOG.md](/home/peerat/projects/usdx/CHANGELOG.md)

@@ -1,9 +1,12 @@
-//  USDR_FT8_400d.ino
+//  Текущая ветка:
+//  - сопровождающий форк: Peerat
+//  - GitHub форка: https://github.com/peerat/usdx
 //
-//  Форк R3VAF на базе QCX-SSB/uSDX:
-//  - исходный проект QCX-SSB: https://github.com/threeme3/QCX-SSB
-//  - модификации GW8RDI сохранены как основа этой версии
-//  - в этой сборке включены настройки и доработки R3VAF для uSDX/uSDR
+//  Предыдущие авторы и базовые источники:
+//  - базовый проект QCX-SSB/uSDX: https://github.com/threeme3/QCX-SSB
+//  - основная DSP/firmware база: Guido PE1NNZ
+//  - крупный слой прошлых доработок этой ветки: Rob Colclough GW8RDI
+//  - в этой сборке сохранены и развиваются настройки/доработки R3VAF для uSDX/uSDR
 //
 //  Оригинальные авторские права и лицензии ниже сохранены без смыслового
 //  изменения. Английский текст MIT-лицензии оставлен как юридический оригинал.
@@ -21,15 +24,6 @@
 // Важные заметки GW8RDI: не спешите, несколько раз прочитайте предупреждения ниже.
 
 // Открытая прошивка поддерживалась GW8RDI и участниками сообщества бесплатно.
-
-/*
-Сконфигурировано для клона (tr)usdx:
-
-Результат компиляции от 17 апреля 2023:
-"C:\\Users\\User\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\avr-gcc\\7.3.0-atmel3.6.1-arduino7/bin/avr-size" -A "C:\\Users\\Usuario\\AppData\\Local\\Temp\\arduino\\sketches\\E2EA2B2706C6565E78832871CCAA7296/usdx.ino.elf"
-Скетч использует 32244 байта (99%) памяти программ. Максимум 32256 байт.
-Глобальные переменные используют 1499 байт (73%) ОЗУ, остаётся 549 байт. Максимум 2048 байт.
-*/
 
 // ВНИМАНИЕ: риск повреждения данных при ISP-прошивке.
 // Всегда снимайте C24/C27, если он установлен на линии MOSI ISP-разъёма
@@ -62,8 +56,8 @@
 	73 Rob, GW8RDI
 */
 
-//  Журнал изменений G8RDI:
-#define VERSION   "7.01v"    // Формат "9.99z"; локальная ветка R3VAF. Смена версии пересохраняет EEPROM-настройки этой сборки.
+//  Версия локальной ветки:
+#define VERSION   "7.01w"    // Формат "9.99z"; локальная ветка R3VAF. Смена версии пересохраняет EEPROM-настройки этой сборки.
 
 //  Краткая документация по этой сборке R3VAF.
 //  Назначение:
@@ -79,9 +73,24 @@
 //  - двойное нажатие валкодера: смена диапазона;
 //  - удержание валкодера и вращение: громкость;
 //  - левая кнопка: вход/выход из меню;
+//  - длинная левая: переключение VFO A/B;
 //  - правая кнопка: смена режима;
 //  - двойная правая: смена полосы фильтра;
-//  - длинная правая: переключение VFO A/B.
+//  - длинная правая: вход/выход из редактирования RIT.
+//
+//  Экран:
+//  - верхняя строка: частота в формате kHz.xx, справа S-meter и dBm;
+//  - нижняя строка: режим, статусные флаги и компактная полоса фильтра;
+//  - при редактировании RIT нижняя строка заменяется на "RIT +/-xx.xx";
+//  - в CW нижняя строка может использоваться под текст декодера.
+//
+//  Статусы на нижней строке:
+//  - Q/q: QUAD включен / выключен;
+//  - P/p: Scan Squelch включен / выключен;
+//  - R/r: RIT активно / неактивно;
+//  - N/n: NR включен / выключен;
+//  - A/a: AGC включен / выключен;
+//  - T: передача.
 //
 //  Меню:
 //  - верхняя строка показывает раздел;
@@ -97,60 +106,21 @@
 //  - во время автосканирования курсор шага скрывается, чтобы не было артефактов LCD.
 //
 //  Локальный changelog R3VAF:
+//  - 7.01w: отключена скрытая сервисная CAL_IQ ветка в baseline; убраны
+//    недостижимые menu post-handler'ы BAND/VFOSEL/RIT/CALIB; освобожден запас flash.
+//  - 7.01v: доведен transformer config layer, собраны hardware/UI/size профили,
+//    baseline упрощен и очищен от части legacy-хвостов.
 //  - 7.01u: обновлены стартовые настройки по умолчанию: USB на 7074 кГц,
 //    AGC off, NR 0, ATT/ATT2 0, Drive 8.
 //  - 7.01t: главный экран переведен на частоту в формате kHz.xx, нижняя строка
 //    выровнена по знакоместам, добавлен компактный вывод фильтра.
-//  - 7.01s: русская встроенная документация по функциям и управлению в шапке файла.
-//  - 7.01r: исправлена логика ScanStp: порог теперь сравнивается с уже измеренным
-//    минимумом шума, а не с только что обновленным значением.
-//  - 7.01q: скрыт курсор шага частоты во время автосканирования, чтобы убрать
-//    мельтешение рядом со статусом R.
-//  - 7.01p: ScanStp переведен на двухэтапную логику: подтверждение сигнала,
-//    удержание частоты около 10 секунд, затем автоматическое продолжение скана.
-//  - 7.01o: dBm на экране ускорен во время автосканирования.
-//  - 7.01n: меню открывается только штатной левой кнопкой; выход из меню всегда
+//  - 7.01r: автоскан переведен на адаптивный порог по шумовому минимуму,
+//    подтверждение сигнала и поиск локального пика.
+//  - 7.01n: меню открывается только левой кнопкой; выход из меню всегда
 //    принудительно перерисовывает основной экран.
-//  - 7.01m: пункты меню переведены на формат без числовых префиксов, раздел
-//    выводится в верхней строке, параметр - в нижней.
-//  - 7.01l: VOX по умолчанию выключен; убрано ложное включение TX во время меню.
-//  - 7.01k: Keyer Mode переименован в Keyer; подсветка в меню управляется явно.
-//  - 7.01j: добавлен адаптивный ScanStp с порогом в dB относительно фона.
+//  - 7.01m: меню переведено на формат без числовых префиксов с разделами
+//    General/RX/TX/CW.
 //  - 7.01i: отключен CW debug display, чтобы в CW не сыпался служебный мусор.
-//  - 7.01h: сгруппировано меню General/RX/TX/CW и переработана навигация.
-
-//  2022/03/04 - Added delay to show serial number at start - G8RDI mod
-//               Added band change direction based on last freq step directions. See "case BE | DC:" - GW8RDI mod
-//               Set PB3/PB5 to output in init to drive LCD backlight
-//  2022/03/05 - Release 1.02wA2 2022/03/20 : Added Cat 8.6 ad QUAD enable 8.7 menu items
-//  2022/03/06 - With MORE_MIC_GAIN enabled & QUAD disabled, SSB TX voice is sounding much better!
-//  2022/04/24 - Release 1.02wA3: Fixed band dir. bug
-//  2022/05/08 - Added KEEP_BAND_DATA to maintain last freq and mode set on each band.
-//  2022/05/09 - Release 1.02wA4 : Maintains last freq and mode set for each band, up to 9 bands set. Added error code display.
-//  2022/05/11 - Changed menu to cycle end-start, start-end
-//  2022/07/19 - Added full CW mode update on band change, minor fixes
-//  2022/07/19 - Release 1.02wA5 : Maintains last freq and mode set for each band, up to 9 bands set. Added error code display.
-//  2022/07/28 - Release 1.02wA6 : Minor changes. Reduced CW message duplication to release more memory.
-//  2022/08/16 - Release 1.02wA7 : Directional band-change went in the wrong direction if SWAP_ROTARY was not enabled. This fix solves that issue.
-//  2022/08/19 - Release 1.02wA8 : Directional band-change saved last band-mode to Flash, and not mode of band changed to, causing incorrect mode restore if shutdown without band change.  Minor other changes, DEBUG modes changes callsign.
-//  2022/08/22 - Release 1.02wA8a : Red Corners Unit: CW messages updated, Band menu fix as was showing 6m in the list. Added WHITE_CORNERS to config list.
-//  2022/08/22 - Release 2.00a : Jumped version to avoid confusion with prev. releases. Added SWR, 115200 baud CAT, experimental changes to AM and FM, and minor tidy up
-//  2022/10/12 - Release 2.00b : NR stays as last used.
-//  2022/11/06 - Release 2.00c : #define KEYER CW keyer for Iambic -> NOTE: Auto CW msg sending aborts if not installed, and 700Hz filter selection gives reduced gain.
-//  : Added new post mag IQ filter, added BlackBrick config.
-//  2023/02/09 - Release 2.00d : Added CAT freq. error handling, in RIT mode the TX freq. is now displayed, plus FIR noise filter, see #define NR_FIR below. NR 0-2 is 1.02x method, 3-8 is now FIR DSP filter method to be used with Full b/w and Att2 = 2
-//  2023/02/09 - Release 2.00e : Ammended code to support +/- 99 KHz RIT receiver offset, and added CAT command to set the RIT offset.
-//  2023/03/14 - Release 2.00f : Ammended code with new "TT" CAT command to set a TX offset frequency; see CAT_XO_CMD. Minor improvements for setting mode display, etc.
-//  2023/03/14 - Update to 2.00f : Ammended code as missing #ifdef KEEP_BAND_DATA on line 5922
-//  2023/04/01 - Release 4.00a : Changed to version 4.00 as DL2MAN jumped his version up to 2.00!  CAT now enables directly from the menu without needing a reboot to activate!  CAT MDx; now refreshes LCD fully after CW mode.
-//                               Re-coded KEEP_BAND_DATA switch statements which freed 328 bytes!!
-//  2023/04/11 - Release 4.00b : Fixed CAT mode change to allow it to select AM and FM, AM important to correctly track IQ flip. Also commented-out redundant BE | DC for mode change, as now used for directional band change.
-//                               RIT mode now allows mode to be changed.
-//  2023/04/17 - Release 4.00c : Ammended configuration for TRUSDX clone so that latched-relay band switching and SWR selection is included.
-//  2023/04/18 - Release 4.00d : Minor updates to handle both 5 and 8 band versions of (tr)usdx clone
-
-//  : Added new post mag IQ filter, added BlackBrick config.
-//  : todo see "// xyzzy Test with i_d"
 
 // При выпуске новой сборки обновите VERSION выше.
 
@@ -167,7 +137,17 @@
 
 
 
-	// Блок выбора модели uSDX.
+// =========================
+// Transformer config layer
+// =========================
+// Этот блок постепенно становится единым compile-time входом для "прошивки-
+// трансформера". Пока здесь только нормализованы секции; поведение baseline
+// не меняется.
+
+// -------------------------
+// Hardware profile
+// -------------------------
+// Блок выбора модели uSDX.
 
 
 
@@ -181,21 +161,163 @@
 		XXRED CORNERS: 25000000, SWR, SWAP_ROTARY
 		XXTRUSDX: клон в корпусе "DL2MAN & PE1NNZ"; обязательно сверяйте ревизию железа.
 */
-// Включайте только одну модель ниже, меняя комментарий // у соответствующего #define.
+// Предпочтительный путь для "трансформера" - выбирать один hardware preset.
+// Нижний код пока живет на старых макросах BLACK_BRICK/RED_CORNERS/...,
+// поэтому этот блок только мостит новый слой к legacy-конфигу.
 //________________________________________________________________________________________________________________________
-//#define BLACK_BRICK 1   // Управление подсветкой через PD3/0x08, SWR, без инверсии энкодера.
+#if (defined(USDX_HW_BLACK_BRICK) + defined(USDX_HW_RED_CORNERS) + defined(USDX_HW_RED_BUTTONS) + defined(USDX_HW_WHITE_BUTTONS) + defined(USDX_HW_TRUSDX) + defined(USDX_HW_GENERIC_27MHZ) + defined(BLACK_BRICK) + defined(RED_CORNERS) + defined(RED_BUTTONS) + defined(WHITE_BUTTONS) + defined(TRUSDX)) > 1
+#error "Select only one hardware preset/profile"
+#endif
 
-#define RED_CORNERS 1 // Подсветка через PD3/0x08 или PD5/0x20 для Red Corners. Отключить для Red/White buttons и большинства Black Brick.
+#if !defined(USDX_HW_BLACK_BRICK) && !defined(USDX_HW_RED_CORNERS) && !defined(USDX_HW_RED_BUTTONS) && !defined(USDX_HW_WHITE_BUTTONS) && !defined(USDX_HW_TRUSDX) && !defined(USDX_HW_GENERIC_27MHZ) && !defined(BLACK_BRICK) && !defined(RED_CORNERS) && !defined(RED_BUTTONS) && !defined(WHITE_BUTTONS) && !defined(TRUSDX)
+#define USDX_HW_RED_CORNERS 1  // Baseline: текущая рабочая конфигурация проекта.
+#endif
+
+//#define USDX_HW_BLACK_BRICK 1
+//#define USDX_HW_RED_CORNERS 1
+//#define USDX_HW_RED_BUTTONS 1
+//#define USDX_HW_WHITE_BUTTONS 1
+//#define USDX_HW_TRUSDX 1
+//#define USDX_HW_GENERIC_27MHZ 1
+
+#if !defined(BLACK_BRICK) && !defined(RED_CORNERS) && !defined(RED_BUTTONS) && !defined(WHITE_BUTTONS) && !defined(TRUSDX)
+#ifdef USDX_HW_BLACK_BRICK
+#define BLACK_BRICK 1   // Управление подсветкой через PD3/0x08, SWR, без инверсии энкодера.
+#endif
+#ifdef USDX_HW_RED_CORNERS
+#define RED_CORNERS 1   // Подсветка через PD3/0x08 или PD5/0x20 для Red Corners.
+#endif
+#ifdef USDX_HW_RED_BUTTONS
+#define RED_BUTTONS 1   // Малый HF SDR TRANSCEIVER uSDX без схемы SWR; возможны SMD-индуктивности.
+#endif
+#ifdef USDX_HW_WHITE_BUTTONS
+#define WHITE_BUTTONS 1 // Малый чёрный аппарат с белыми/красными кнопками спереди, без SWR.
+#endif
+#ifdef USDX_HW_TRUSDX
+#define TRUSDX 1        // Малый клон uSDX в 3D-печатном корпусе "DL2MAN & PE1NNZ".
+#endif
+#endif
+
+#define USDX_HW_DEFAULT_BACKLIGHT_MASK 0x08
+#define USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY 0
+#define USDX_HW_DEFAULT_ENABLE_SWR 0
+#define USDX_HW_DEFAULT_ENABLE_LPF_REV3 1
+#define USDX_HW_DEFAULT_F_XTAL 27000000UL
+#define USDX_HW_DEFAULT_SI5351_ADDR 0x60
+#define USDX_HW_DEFAULT_PTX 11
+#define USDX_HW_DEFAULT_ENABLE_LCD_I2C 0
+#define USDX_HW_DEFAULT_ENABLE_OLED_SSD1306 0
+#define USDX_HW_DEFAULT_ENABLE_OLED_SH1106 0
+#define USDX_HW_DEFAULT_ENABLE_CONDENSED 0
+#define USDX_HW_DEFAULT_ENABLE_ONEBUTTON 0
+#define USDX_HW_DEFAULT_ENABLE_ONEBUTTON_INV 0
+#define USDX_HW_DEFAULT_BACKLIGHT_ACTIVE_LOW 0
+
+#if defined(USDX_HW_BLACK_BRICK) || defined(USDX_HW_RED_CORNERS)
+#undef USDX_HW_DEFAULT_BACKLIGHT_MASK
+#define USDX_HW_DEFAULT_BACKLIGHT_MASK 0x20
+#endif
+
+#if defined(USDX_HW_BLACK_BRICK) || defined(USDX_HW_RED_CORNERS)
+#undef USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY
+#undef USDX_HW_DEFAULT_ENABLE_SWR
+#undef USDX_HW_DEFAULT_F_XTAL
+#define USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY 1
+#define USDX_HW_DEFAULT_ENABLE_SWR 1
+#define USDX_HW_DEFAULT_F_XTAL 25000000UL
+#endif
+
+#if defined(USDX_HW_RED_CORNERS)
+#undef USDX_HW_DEFAULT_BACKLIGHT_ACTIVE_LOW
+#define USDX_HW_DEFAULT_BACKLIGHT_ACTIVE_LOW 1
+#endif
+
+#if defined(USDX_HW_RED_BUTTONS) || defined(USDX_HW_WHITE_BUTTONS)
+#undef USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY
+#define USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY 1
+#endif
+
+#if (defined(USDX_UI_LCD_I2C) + defined(USDX_UI_OLED_SSD1306) + defined(USDX_UI_OLED_SH1106)) > 1
+#error "Select only one UI backend override"
+#endif
+
+#if (defined(LCD_I2C) + defined(OLED_SSD1306) + defined(OLED_SH1106)) > 1
+#error "Select only one display backend"
+#endif
+
+#if !defined(LCD_I2C) && !defined(OLED_SSD1306) && !defined(OLED_SH1106)
+#if defined(USDX_UI_LCD_I2C)
+#define LCD_I2C 1
+#elif defined(USDX_UI_OLED_SSD1306)
+#define OLED_SSD1306 1
+#elif defined(USDX_UI_OLED_SH1106)
+#define OLED_SH1106 1
+#elif USDX_HW_DEFAULT_ENABLE_LCD_I2C
+#define LCD_I2C 1
+#elif USDX_HW_DEFAULT_ENABLE_OLED_SSD1306
+#define OLED_SSD1306 1
+#elif USDX_HW_DEFAULT_ENABLE_OLED_SH1106
+#define OLED_SH1106 1
+#endif
+#endif
+
+#if defined(USDX_UI_CONDENSED) && !(defined(USDX_UI_OLED_SSD1306) || defined(USDX_UI_OLED_SH1106) || defined(USDX_UI_LCD_I2C) || defined(OLED_SSD1306) || defined(OLED_SH1106) || defined(LCD_I2C) || USDX_HW_DEFAULT_ENABLE_OLED_SSD1306 || USDX_HW_DEFAULT_ENABLE_OLED_SH1106 || USDX_HW_DEFAULT_ENABLE_LCD_I2C)
+#error "CONDENSED UI requires an OLED or LCD_I2C backend"
+#endif
+
+#if defined(MY_RED_CORNERS) && !(defined(USDX_HW_RED_CORNERS) || defined(RED_CORNERS))
+#error "MY_RED_CORNERS requires the RED_CORNERS hardware profile"
+#endif
+
+#if !defined(CONDENSED)
+#if defined(USDX_UI_CONDENSED)
+#define CONDENSED 1
+#elif USDX_HW_DEFAULT_ENABLE_CONDENSED
+#define CONDENSED 1
+#endif
+#endif
+
+#if (defined(USDX_TX_PTX) + defined(USDX_TX_NTX) + defined(USDX_TX_CLK0_CLK1) + defined(PTX) + defined(NTX) + defined(TX_CLK0_CLK1)) > 1
+#error "Select only one TX output wiring mode"
+#endif
+
+#if !defined(USDX_TX_PTX) && !defined(USDX_TX_NTX) && !defined(USDX_TX_CLK0_CLK1) && !defined(PTX) && !defined(NTX) && !defined(TX_CLK0_CLK1)
+#define USDX_TX_PTX 1  // Baseline: внешний PA/PTT включается через активный HIGH на PTX.
+#endif
+
+#if !defined(PTX) && !defined(NTX) && !defined(TX_CLK0_CLK1)
+#if defined(USDX_TX_PTX)
+#define PTX USDX_HW_DEFAULT_PTX
+#elif defined(USDX_TX_NTX)
+#define NTX USDX_HW_DEFAULT_PTX
+#elif defined(USDX_TX_CLK0_CLK1)
+#define TX_CLK0_CLK1 1
+#endif
+#endif
+
+#if (defined(USDX_INPUT_ONEBUTTON) + defined(USDX_INPUT_ROTARY) + defined(ONEBUTTON)) > 1
+#error "Select only one input mode profile"
+#endif
+
+#if !defined(USDX_INPUT_ONEBUTTON) && !defined(USDX_INPUT_ROTARY) && !defined(ONEBUTTON)
+#define USDX_INPUT_ROTARY 1  // Baseline: обычный валкодер с отдельной кнопкой.
+#endif
+
+#if !defined(ONEBUTTON)
+#if defined(USDX_INPUT_ONEBUTTON) || USDX_HW_DEFAULT_ENABLE_ONEBUTTON
+#define ONEBUTTON 1
+#endif
+#endif
+
+#if !defined(ONEBUTTON_INV)
+#if defined(USDX_INPUT_ONEBUTTON_INV) || USDX_HW_DEFAULT_ENABLE_ONEBUTTON_INV
+#define ONEBUTTON_INV 1
+#endif
+#endif
 
 // Эту строку обычно оставлять выключенной.
-///#define MY_RED_CORNERS 1	// Только для экземпляра GW8RDI Red Corners с обратной частью энкодера.
+// #define MY_RED_CORNERS 1	// Только для экземпляра GW8RDI Red Corners с обратной частью энкодера.
 // Строка выше обычно выключена.
-
-//#define RED_BUTTONS 1 // Малый HF SDR TRANSCEIVER uSDX без схемы SWR; возможны SMD-индуктивности.
-
-//#define WHITE_BUTTONS 1 // Малый чёрный аппарат с белыми/красными кнопками спереди, без SWR.
-
-//#define TRUSDX 1 // Малый клон uSDX в 3D-печатном корпусе "DL2MAN & PE1NNZ"; перед использованием сверить детали конфигурации.
 // Защиту SWR через измерительный резистор PA можно добавить при необходимости.
 
 // Если ни одна модель не включена, конфигурация может подойти другим аппаратам.
@@ -210,12 +332,19 @@
 
 
 
-
-#if defined(RED_CORNERS) || defined(BLACK_BRICK)
-static const uint8_t BACKLIGHT_MASK = 0x20;
+static const uint8_t BACKLIGHT_MASK = USDX_HW_DEFAULT_BACKLIGHT_MASK;
+static const uint8_t BACKLIGHT_PIN = (BACKLIGHT_MASK == 0x20) ? PD5 : PD3;
+#if USDX_HW_DEFAULT_BACKLIGHT_ACTIVE_LOW
+#undef APPLY_BACKLIGHT_ON
+#define APPLY_BACKLIGHT_ON()  (PORTD &= ~BACKLIGHT_MASK)
 #else
-static const uint8_t BACKLIGHT_MASK = 0x08;
+#undef APPLY_BACKLIGHT_ON
+#define APPLY_BACKLIGHT_ON()  (PORTD |= BACKLIGHT_MASK)
 #endif
+
+// -------------------------
+// Feature toggles
+// -------------------------
 
 //#ifndef TRUSDX  // При включённом CAT на TRUSDX память диапазонов отключали ради экономии места.
 //#define KEEP_BAND_DATA 1        // Хранить последнюю частоту и режим для каждого диапазона.
@@ -224,6 +353,10 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 #define SHOW_USB_LSB_CW_ONLY 1  // Если включено, кнопка Mode циклически выбирает только USB, LSB и CW.
 
 // Изменения модуляции AM и FM.
+// -------------------------
+// Experimental toggles
+// -------------------------
+
 //#define FM_ARCTAN 1         // Тестовый FM-дифференциатор.
 //#define AM_MOD_MAGN_SQRT 1  // Более точный расчёт AM через SQRT.
 
@@ -236,11 +369,6 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 // Позывной не длиннее 5 символов. Два пробела в конце STARTUP_CALLSIGN обязательны.
 // Позывной показывается только в приветствии при старте.
 #define MY_CALLSIGN "R3VAF"                // Используется только если позже будут включены CW-макросы.
-#if defined(DEBUG_G8RDI)
-#define STARTUP_CALLSIGN "DEBUG  "
-#else
-#define STARTUP_CALLSIGN "R3VAF  "
-#endif
 
 //#define MY_PREFIX ""  // Префикс не используется.
 //#define MY_PREFIX ""  // Префикс страны/района при работе из поездки.
@@ -252,44 +380,46 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 // CAT занимает заметно много памяти, поэтому отключайте ненужное.
 
 // Если валкодер крутит частоту не в ту сторону, измените SWAP_ROTARY.
-#if defined(RED_CORNERS) || defined(BLACK_BRICK)
+#if USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY
 // Для Red Corners обычно нужен SWAP_ROTARY, если не менялся тип энкодера.
-#ifdef MY_RED_CORNERS
+#if defined(USDX_HW_RED_CORNERS) && defined(MY_RED_CORNERS)
 #define REVERSE_BAND_CHANGE	1	// Если частота крутится правильно, а диапазоны наоборот, включите REVERSE_BAND_CHANGE.
 #else
 #define SWAP_ROTARY    1   // Инверсия направления энкодера.
 //#define REVERSE_BAND_CHANGE	1	// Инверсия направления смены диапазона.
 #endif
+#endif
+
+#if USDX_HW_DEFAULT_ENABLE_SWR
 // SWR, CW-сообщения и CAT вместе могут не поместиться во Flash.
 #define SWR_METER      1   // Измеритель SWR через мост на A6/A7 для LQPF ATmega328P.
 #endif
 
-//***************** Функции TRUSDX.
-//#if defined(TRUSDX)
-
-//#define LCD_I2C        1   // LCD через I2C/PCF8574: SDA PD2, SCL PD3; дисплей медленный.
-
-//#define OLED_SSD1306     1   // OLED SSD1306 128x32/128x64: SDA PD2, SCL PD3.
-//#define OLED_SH1106    1   // OLED SH1106 1.3": SDA PD2, SCL PD3; дисплей медленный.
-//#define CONDENSED        1   // Четырёхстрочный режим для OLED и LCD2004.
-
-//#define LPF_SWITCHING_DL2MAN_USDX_REV3 1    // Реле IM43 с фиксацией, 5-8 диапазонов.
-//#define LPF_SWITCHING_DL2MAN_USDX_REV2  1 // Реле IM43 с фиксацией, 5 диапазонов.
-
-//#define SWR_METER        1   // Измеритель SWR через мост на A6/A7.
-
-//*****************
-//#else
-
+#if USDX_HW_DEFAULT_ENABLE_LPF_REV3
 #define LPF_SWITCHING_DL2MAN_USDX_REV3 1    // По умолчанию 8 диапазонов, реле IM43 с фиксацией.
-//#define LPF_SWITCHING_DL2MAN_USDX_REV3_NOLATCH 1    // Включать только для версии без фиксации реле.
-//#define LPF_SWITCHING_DL2MAN_USDX_REV2  1 // 5 диапазонов, реле IM43 с фиксацией.
+#endif
+
+// Поддерживаемые compile-time варианты, которые по-прежнему можно включать
+// вручную, если нужен нестандартный профиль поверх bridge-слоя сверху файла:
+//#define LCD_I2C                          1   // LCD через I2C/PCF8574: SDA PD2, SCL PD3.
+//#define OLED_SSD1306                     1   // OLED SSD1306 128x32/128x64.
+//#define OLED_SH1106                      1   // OLED SH1106 1.3".
+//#define CONDENSED                        1   // Четырёхстрочный режим для OLED/LCD2004.
+//#define LPF_SWITCHING_DL2MAN_USDX_REV3  1   // 8-band IM43 latching relays.
+//#define LPF_SWITCHING_DL2MAN_USDX_REV3_NOLATCH 1 // 8-band non-latching rev3.
+//#define LPF_SWITCHING_DL2MAN_USDX_REV2  1   // 5-band IM43 latching relays.
+//#define LPF_SWITCHING_DL2MAN_USDX_REV2_BETA 1 // 5-band PCA9539PW variant.
+//#define LPF_SWITCHING_DL2MAN_USDX_REV1  1   // 3-band PCA9536D variant.
+//#define LPF_SWITCHING_WB2CBA_USDX_OCTOBAND 1 // 8-band MCP23008 variant.
+//#define LPF_SWITCHING_PE1DDA_USDXDUO    14  // 2-band relay, threshold in MHz.
+//#define VSS_METER                       1   // Измерение питания через ADC.
+//#define QCX                             1   // Старые QCX/QCX-SSB/QCX-DSP модификации.
+
+#if (defined(LPF_SWITCHING_DL2MAN_USDX_REV1) + defined(LPF_SWITCHING_DL2MAN_USDX_REV2) + defined(LPF_SWITCHING_DL2MAN_USDX_REV2_BETA) + defined(LPF_SWITCHING_DL2MAN_USDX_REV3) + defined(LPF_SWITCHING_WB2CBA_USDX_OCTOBAND) + defined(LPF_SWITCHING_PE1DDA_USDXDUO)) > 1
+#error "Select only one LPF switching topology"
+#endif
 
 //#endif
-
-#if defined(BLACK_BRICK)
-#define SWR_METER      1   // Измеритель SWR через мост на A6/A7.
-#endif
 
 //#define FAST_AGC         1   // Быстрая AGC, полезна для CW; при нехватке памяти отключить.
 
@@ -340,7 +470,7 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 //#define CW_MSG3 MY_CALLSIGN
 
 //#define NR_FIR 1  // FIR-шумодав; обычно не помещается вместе с CAT без отключения других функций.
-//#define QUAD             1   // Экспериментальная инверсия TX-фазы при больших скачках фазы; обычно держим выключенной.
+#define QUAD             1   // Экспериментальная инверсия TX-фазы при больших скачках фазы.
 
 /// Для экономии памяти под CAT отключали FAST_AGC и DIAG.
 //#define DIAG             1   // Аппаратная диагностика при старте.
@@ -350,7 +480,6 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 //#endif
 
 #define CW_DECODER       1   // CW-декодер.
-//#define CW_DEBUG_DISPLAY 1   // Временная диагностика таймингов CW-декодера на второй строке LCD.
 //#define CW_INTERMEDIATE  1   // Показывать промежуточные CW-последовательности для обучения.
 //#define CW_FREQS_QRP   1   // При смене диапазона использовать CW QRP-частоты.
 //#define CW_FREQS_FISTS 1   // При смене диапазона использовать CW FISTS-частоты.
@@ -359,33 +488,24 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 // Это кварц около SI5351, а не кварц микроконтроллера ATmega.
 //#define F_XTAL    27005000   // Кварц SI5351 27 МГц.
 //#define F_XTAL  25004000   // Кварц SI5351 25 МГц.
-#if defined(RED_CORNERS) || defined(BLACK_BRICK)
-#define F_XTAL  25000000   // Кварц/TCXO SI5351 25 МГц.
-#elif defined(MY_RED_CORNERS)
-#define F_XTAL  27001400
+#if defined(USDX_HW_RED_CORNERS) && defined(MY_RED_CORNERS)
+static const uint32_t USDX_SELECTED_F_XTAL = 27001400UL;
 #else
-#define F_XTAL  27000000   // Укажите точную частоту кварца или 27000000 для типового 27 МГц.
+static const uint32_t USDX_SELECTED_F_XTAL = USDX_HW_DEFAULT_F_XTAL;
 #endif
+#define F_XTAL  USDX_SELECTED_F_XTAL   // Дефолт кварца задается hardware preset.
 
 // VSS_METER показывает напряжение питания на LCD.
 // В оригинальном коде переключение ADC VREF на 5 В может давать шум в IQ-сэмплах
 // и мешать чтению кнопок через ADC. Лучше использовать делитель на двух резисторах.
 //#define VSS_METER      1   // Измерение Vss как вариант S-meter; нужен резистор 1 МОм между 12 В и PC3.
 
-//#define QCX            1   // Старые аппаратные модификации QCX/QCX-SSB/QCX-DSP.
-//#define OLED_SSD1306   1   // OLED SSD1306 128x32/128x64: SDA PD2, SCL PD3.
-//#define OLED_SH1106    1   // OLED SH1106 1.3": SDA PD2, SCL PD3; дисплей медленный.
-//#define LCD_I2C        1   // LCD через I2C/PCF8574: SDA PD2, SCL PD3; дисплей медленный.
-//#define LPF_SWITCHING_DL2MAN_USDX_REV3           1   // Enable 8-band filter bank switching:     latching relays wired to a TCA/PCA9555 GPIO extender on the PC4/PC5 I2C bus; relays are using IO0.0 as common (ground), IO1.0..7 used by the individual latches K0-7 switching respectively LPFs for 10m, 15m, 17m, 20m, 30m, 40m, 60m, 80m
-//#define LPF_SWITCHING_DL2MAN_USDX_REV3_NOLATCH 1   // Enable 8-band filter bank switching: non-latching relays wired to a TCA/PCA9555 GPIO extender on the PC4/PC5 I2C bus; relays are using IO0.0 as common (ground), IO1.0..7 used by the individual latches K0-7 switching respectively LPFs for 10m, 15m, 17m, 20m, 30m, 40m, 60m, 80m. Enable this if you are using 8-band non-latching version for the relays, the radio will draw extra 15mA current but will work ity any relay (Tnx OH2UDS/TA7W Baris)
-//#define LPF_SWITCHING_DL2MAN_USDX_REV2         1   // Enable 5-band filter bank switching:     latching relays wired to a TCA/PCA9555 GPIO extender on the PC4/PC5 I2C bus; relays are using IO0.1 as common (ground), IO0.3, IO0.5, IO0.7, IO1.1, IO1.3 used by the individual latches K1-5 switching respectively LPFs for 20m, 30m, 40m, 60m, 80m
-//#define LPF_SWITCHING_DL2MAN_USDX_REV2_BETA    1   // Enable 5-band filter bank switching:     latching relays wired to a PCA9539PW   GPIO extender on the PC4/PC5 I2C bus; relays are using IO0.1 as common (ground), IO0.3, IO0.5, IO0.7, IO1.1, IO1.3 used by the individual latches K1-5 switching respectively LPFs for 20m, 30m, 40m, 60m, 80m
-//#define LPF_SWITCHING_DL2MAN_USDX_REV1         1   // Enable 3-band filter bank switching:     latching relays wired to a PCA9536D    GPIO extender on the PC4/PC5 I2C bus; relays are using IO0 as common (ground), IO1-IO3 used by the individual latches K1-3 switching respectively LPFs for 20m, 40m, 80m
-//#define LPF_SWITCHING_WB2CBA_USDX_OCTOBAND     1   // Enable 8-band filter bank switching: non-latching relays wired to a MCP23008    GPIO extender on the PC4/PC5 I2C bus; relays are using GND as common (ground), GP0..7 used by the individual latches K1-8 switching respectively LPFs for 80m, 60m, 40m, 30m, 20m, 17m, 15m, 10m
-//#define LPF_SWITCHING_PE1DDA_USDXDUO           14  // Enable 2-band filter bank switching: non-latching relay  wired to pin PD5 (pin 11); specify as value the frequency in MHz for which (and above) the relay should be altered (e.g. put 14 to enable the relay at 14MHz and above to use the 20m LPF).
-#define SI5351_ADDR   0x60   // I2C-адрес SI5351A: обычно 0x60, иногда 0x62 или 0x6F.
+#define SI5351_ADDR   USDX_HW_DEFAULT_SI5351_ADDR   // I2C-адрес SI5351A: обычно 0x60, иногда 0x62 или 0x6F.
 //#define F_MCU   16000000   // Кварц ATmega328P 16 МГц для обычных Uno/Nano.
 
+// -------------------------
+// Advanced hardware / feature toggles
+// -------------------------
 // Расширенные переключатели конфигурации.
 //#define CONDENSED      1   // Четырёхстрочный режим для OLED и LCD2004.
 #define TX_ENABLE        1   // Передача включена; отключить для RX-only.
@@ -394,6 +514,7 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 //#define VOX_ENABLE       1   // VOX: переход на передачу при превышении порога звука.
 //#define MOX_ENABLE     1   // Мониторинг собственного аудио при передаче.
 
+// Для one-button конфигураций предпочтителен bridge-слой USDX_INPUT_* выше.
 //#define ONEBUTTON      1   // Управление одной кнопкой энкодера.
 //#define DEBUG          1   // Только для разработки: CPU load, sample rate и дополнительные параметры.
 //#define TESTBENCH      1   // Тест RX-цепочки синусом, результаты через Serial.
@@ -401,13 +522,16 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 // Часть функций отключена ради экономии памяти при включённом CAT.
 //#define TX_DELAY       1   // Задержка перед подачей мощности, чтобы реле успело переключиться.
 //#define NTX            11  // LOW на TX для внешнего PA/PTT; 11 означает PB3.
-#define PTX            11  // HIGH на TX для внешнего PA/PTT; 11 означает PB3.
+// PTX/NTX/TX_CLK0_CLK1 теперь лучше выбирать через bridge-слой USDX_TX_* выше.
 //#define CLOCK          1   // Часы.
 // Отключённые варианты для экономии памяти:
 //#define F_XTAL  20000000   // uSDXDuO, кварц SI5351 20 МГц.
 //#define TX_CLK0_CLK1   1   // uSDXDuO: PA управляется CLK0/CLK1 вместо CLK2.
 //#define F_CLK2  12000000   // Фиксированный выход CLK2, например для ап-конвертера.
 
+// -------------------------
+// Pin map
+// -------------------------
 // QCX pin defintions
 #define LCD_D4  0         //PD0    (pin 2)
 #define LCD_D5  1         //PD1    (pin 3)
@@ -444,6 +568,9 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 #define OLED    1
 #endif
 
+// -------------------------
+// Build overrides
+// -------------------------
 // PlatformIO size profiles. These flags intentionally override the selected
 // radio configuration so each optional feature can be measured independently.
 #ifdef USDX_DISABLE_CAT
@@ -455,6 +582,31 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 
 #if (defined(CAT) || defined(TESTBENCH)) && !(OLED)
 #define _SERIAL  1       // Coexistence support for serial port and LCD on the same pins
+#endif
+
+#if defined(CAT_EXT) && !defined(CAT)
+#error "CAT_EXT requires CAT"
+#endif
+#if defined(CAT_STREAMING) && !defined(CAT)
+#error "CAT_STREAMING requires CAT"
+#endif
+#if defined(CAT_FAST) && !defined(CAT)
+#error "CAT_FAST requires CAT"
+#endif
+#if defined(CAT_TX_CMD) && !defined(CAT)
+#error "CAT_TX_CMD requires CAT"
+#endif
+#if defined(CAT_XO_CMD) && !defined(CAT)
+#error "CAT_XO_CMD requires CAT"
+#endif
+#if defined(CAT_XO_CMD) && !defined(RIT_ENABLE)
+#error "CAT_XO_CMD requires RIT_ENABLE"
+#endif
+#if defined(CW_MESSAGE_EXT) && !defined(CW_MESSAGE)
+#error "CW_MESSAGE_EXT requires CW_MESSAGE"
+#endif
+#if defined(ONEBUTTON_INV) && !defined(ONEBUTTON)
+#error "ONEBUTTON_INV requires ONEBUTTON"
 #endif
 
 #ifdef LPF_SWITCHING_DL2MAN_USDX_REV3_NOLATCH
@@ -489,24 +641,55 @@ static const uint8_t BACKLIGHT_MASK = 0x08;
 #ifdef USDX_DISABLE_RIT
 #undef RIT_ENABLE
 #endif
+#ifdef USDX_DISABLE_TX_DELAY
+#undef TX_DELAY
+#endif
+#ifdef USDX_DISABLE_CLOCK
+#undef CLOCK
+#endif
+#ifdef USDX_DISABLE_QUAD
+#undef QUAD
+#endif
+#ifdef USDX_DISABLE_CW_MESSAGE
+#undef CW_MESSAGE
+#undef CW_MESSAGE_EXT
+#endif
+#ifdef USDX_DISABLE_CW_VOLUME
+#undef CW_VOLUME
+#endif
+#ifdef USDX_DISABLE_FAST_AGC
+#undef FAST_AGC
+#endif
+#ifdef USDX_DISABLE_KEEP_BAND_DATA
+#undef KEEP_BAND_DATA
+#endif
+#ifdef USDX_DISABLE_CW_INTERMEDIATE
+#undef CW_INTERMEDIATE
+#endif
+#ifdef USDX_DISABLE_FILTER_700HZ
+#undef FILTER_700HZ
+#endif
+#ifdef USDX_DISABLE_CAT_XO_CMD
+#undef CAT_XO_CMD
+#endif
 
 #ifdef TX_CLK0_CLK1
 #ifdef F_CLK2
-#define TX1RX0  0b11111000
-#define TX1RX1  0b11111000
-#define TX0RX1  0b11111000
-#define TX0RX0  0b11111011
+static const uint8_t TX1RX0 = 0b11111000;
+static const uint8_t TX1RX1 = 0b11111000;
+static const uint8_t TX0RX1 = 0b11111000;
+static const uint8_t TX0RX0 = 0b11111011;
 #else //!F_CLK2
-#define TX1RX0  0b11111100
-#define TX1RX1  0b11111100
-#define TX0RX1  0b11111100
-#define TX0RX0  0b11111111
+static const uint8_t TX1RX0 = 0b11111100;
+static const uint8_t TX1RX1 = 0b11111100;
+static const uint8_t TX0RX1 = 0b11111100;
+static const uint8_t TX0RX0 = 0b11111111;
 #endif //F_CLK2
 #else  //!TX_CLK0_CLK1
-#define TX1RX0  0b11111011
-#define TX1RX1  0b11111000
-#define TX0RX1  0b11111100
-#define TX0RX0  0b11111111
+static const uint8_t TX1RX0 = 0b11111011;
+static const uint8_t TX1RX1 = 0b11111000;
+static const uint8_t TX0RX1 = 0b11111100;
+static const uint8_t TX0RX0 = 0b11111111;
 #endif //TX_CLK0_CLK1
 
 #if defined(F_CLK2) && !defined(TX_CLK0_CLK1)
@@ -532,32 +715,10 @@ static uint32_t stimer;
 #endif
 
 /*
-// UCX installation: On blank chip, use (standard Arduino Uno) fuse settings (E:FD, H:DE, L:FF), and use customized Optiboot bootloader for 20MHz clock, then upload via serial interface (with RX, TX and DTR lines connected to pin 1, 2, 3 respectively)
-// UCX pin defintions
-+#define SDA     3         //PD3    (pin 5)
-+#define SCL     4         //PD4    (pin 6)
-+#define ROT_A   6         //PD6    (pin 12)
-+#define ROT_B   7         //PD7    (pin 13)
-+#define RX      8         //PB0    (pin 14)
-+#define SIDETONE 9        //PB1    (pin 15)
-+#define KEY_OUT 10        //PB2    (pin 16)
-+#define NTX     11        //PB3    (pin 17)
-+#define DAH     12        //PB4    (pin 18)
-+#define DIT     13        //PB5    (pin 19)
-+#define AUDIO1  14        //PC0/A0 (pin 23)
-+#define AUDIO2  15        //PC1/A1 (pin 24)
-+#define DVM     16        //PC2/A2 (pin 25)
-+#define BUTTONS 17        //PC3/A3 (pin 26)
-// In addition set:
-#define OLED  1
-#define ONEBUTTON  1
-#define ONEBUTTON_INV 1
-#undef DEBUG
-adjust I2C and I2C_ ports,
-ssb_cap=1; dsp_cap=2;
-#define _DELAY() for(uint8_t i = 0; i != 5; i++) asm("nop");
-#define F_XTAL 20004000
-#define F_CPU F_XTAL
+// UCX installation notes were historically kept here as a manual porting memo.
+// They are not part of the current Uno baseline or transformer bridge-layer.
+// If UCX support is revived later, re-add it as a dedicated hardware preset
+// instead of editing scattered pin and timing macros inline.
 */
 
 //FUSES = { .low = 0xFF, .high = 0xD6, .extended = 0xFD };   // Fuse settings should be set at programming (Arduino IDE > Tools > Burn bootloader)
@@ -679,30 +840,28 @@ extern volatile uint8_t cw_signal_present;
 //#define _I2C_DIRECT_IO    1 // Enables communications that is not using the standard I/O pull-down approach with pull-up resistors, instead I/O is directly driven with 0V/5V
 class I2C_ { // Secundairy I2C class used by I2C LCD/OLED, uses alternate pins: PD2 (SDA) and PD3 (SCL)
 public:
-#ifdef _DELAY
-#undef _DELAY
-#endif
 #if(F_MCU > 20900000)
 #ifdef OLED_SH1106
-#define _DELAY() for(uint8_t i = 0; i != 9; i++) asm("nop");
+static const uint8_t i2c_alt_delay_cycles = 9;
 #else
 #ifdef OLED_SSD1306
-#define _DELAY() for(uint8_t i = 0; i != 6; i++) asm("nop");
+static const uint8_t i2c_alt_delay_cycles = 6;
 #else // other (I2C_LCD)
-#define _DELAY() for(uint8_t i = 0; i != 7; i++) asm("nop");
+static const uint8_t i2c_alt_delay_cycles = 7;
 #endif
 #endif
 #else // slow F_MCU
 #ifdef OLED_SH1106
-#define _DELAY() for(uint8_t i = 0; i != 8; i++) asm("nop");
+static const uint8_t i2c_alt_delay_cycles = 8;
 #else
 #ifdef OLED_SSD1306
-#define _DELAY() for(uint8_t i = 0; i != 4; i++) asm("nop"); // 4=731kb/s
+static const uint8_t i2c_alt_delay_cycles = 4; // 4=731kb/s
 #else // other (I2C_LCD)
-#define _DELAY() for(uint8_t i = 0; i != 5; i++) asm("nop");
+static const uint8_t i2c_alt_delay_cycles = 5;
 #endif
 #endif
 #endif // F_MCU
+#define _DELAY() for(uint8_t i = 0; i != i2c_alt_delay_cycles; i++) asm("nop");
 #define _I2C_SDA (1<<2) // PD2
 #define _I2C_SCL (1<<3) // PD3
 #ifdef _I2C_DIRECT_IO
@@ -775,8 +934,7 @@ public:
 I2C_ Wire;
 //#include <Wire.h>
 
-uint8_t backlight = 1;
-void apply_backlight();
+static const uint8_t backlight = 1;
 //#define RS_HIGH_ON_IDLE   1   // Experimental LCD support where RS line is high on idle periods to comply with SDA I2C standard.
 
 class LCD : public Print {  // inspired by: http://www.technoblogy.com/show?2BET
@@ -785,16 +943,10 @@ public:  // LCD1602 display in 4-bit mode, RS is pull-up and kept low when idle 
 #define _en  4      // PD4 - MUST have pull-up resistor
 #define _rs  4      // PC4 - MUST have pull-up resistor
 #define RS_PULLUP  1   // Use pullup on RS line, ensures compliancy to the absolute maximum ratings for the si5351 sda input that is shared with rs pin of lcd
-#ifdef LCD_RS_HI
-#undef LCD_RS_HI
-#undef LCD_RS_LO
-#endif
-#ifdef RS_PULLUP
+// RS_PULLUP is fixed in this fork to protect the shared SI5351/LCD line.
+#if RS_PULLUP
 #define LCD_RS_HI() DDRC &= ~(1 << _rs); asm("nop"); // RS high (pull-up)
 #define LCD_RS_LO() DDRC |= 1 << _rs;                // RS low (pull-down)
-#else
-#define LCD_RS_LO() PORTC &= ~(1 << _rs);        // RS low
-#define LCD_RS_HI() PORTC |= (1 << _rs);         // RS high
 #endif //RS_PULLUP
 #define LCD_EN_LO() PORTD &= ~(1 << _en);        // EN low
 #define LCD_EN_HI() PORTD |= (1 << _en);         // EN high
@@ -868,7 +1020,7 @@ public:  // LCD1602 display in 4-bit mode, RS is pull-up and kept low when idle 
 	}
 	void post() {
 		///if(backlight) PORTD |= 0x08; else PORTD &= ~0x08;   // Backlight control
-		apply_backlight();   // Backlight control - G8RDI MOD
+		APPLY_BACKLIGHT_ON();   // Backlight control - G8RDI MOD
 #ifdef _SERIAL
 		//UCSR0B |= (1<<RXEN0)|(1<<TXEN0); if(!vox) if(cat_active){ DDRC &= ~(1<<2); } // Enable serial port, disable PD0, PD1; disable PC2
 		UCSR0B |= (1 << RXEN0) | (1 << TXEN0); if (!vox) if (cat_active) { PORTC &= ~(1 << 2); } // Enable serial port, disable PD0, PD1; PC2 LOW to prevent CAT TX disruption via MIC input
@@ -1661,13 +1813,10 @@ ISR(PCINT2_vect){  // Interrupt on rotary encoder turn
 // https://www.ti.com/lit/an/slva704/slva704.pdf
 class I2C {
 public:
-#ifdef I2C_DELAY
-#undef I2C_DELAY
-#endif
 #if(F_MCU > 20900000)
-#define I2C_DELAY   6
+static const uint8_t i2c_delay = 6;
 #else
-#define I2C_DELAY   4    // Determines I2C Speed (2=939kb/s (too fast!!); 3=822kb/s; 4=731kb/s; 5=658kb/s; 6=598kb/s). Increase this value when you get I2C tx errors (E05); decrease this value when you get a CPU overload (E01). An increment eats ~3.5% CPU load; minimum value is 3 on my QCX, resulting in 84.5% CPU load
+static const uint8_t i2c_delay = 4;  // Increase if you get I2C tx errors; decrease if CPU load is too high.
 #endif
 #define I2C_DDR DDRC     // Pins for the I2C bit banging
 #define I2C_PIN PINC
@@ -1679,8 +1828,8 @@ public:
 #define I2C_SCL_GET() I2C_PIN & I2C_SCL
 #define I2C_SDA_HI() I2C_DDR &= ~I2C_SDA;
 #define I2C_SDA_LO() I2C_DDR |=  I2C_SDA;
-#define I2C_SCL_HI() I2C_DDR &= ~I2C_SCL; DELAY(I2C_DELAY);
-#define I2C_SCL_LO() I2C_DDR |=  I2C_SCL; DELAY(I2C_DELAY);
+#define I2C_SCL_HI() I2C_DDR &= ~I2C_SCL; DELAY(i2c_delay);
+#define I2C_SCL_LO() I2C_DDR |=  I2C_SCL; DELAY(i2c_delay);
 
 	I2C() {
 		I2C_PORT &= ~(I2C_SDA | I2C_SCL);
@@ -1730,7 +1879,7 @@ public:
 	  SendBit(data, 1 << 1) \
 	  SendBit(data, 1 << 0) \
 	  I2C_SDA_HI();  // recv ACK \
-	  DELAY(I2C_DELAY);     \
+	  DELAY(i2c_delay);     \
 	  I2C_SCL_HI();         \
 	  I2C_SCL_LO();*/
 	inline void SendByte(uint8_t data) {
@@ -1743,7 +1892,7 @@ public:
 		SendBit(data, 1 << 1);
 		SendBit(data, 1 << 0);
 		I2C_SDA_HI();  // recv ACK
-		DELAY(I2C_DELAY);
+		DELAY(i2c_delay);
 		I2C_SCL_HI();
 		I2C_SCL_LO();
 	}
@@ -1772,7 +1921,7 @@ public:
 		else {
 			I2C_SDA_LO();  // ACK
 		}
-		DELAY(I2C_DELAY);
+		DELAY(i2c_delay);
 		I2C_SCL_HI();
 		I2C_SDA_HI();    // restore SDA for read
 		I2C_SCL_LO();
@@ -2322,13 +2471,13 @@ inline void set_lpf(uint8_t f) {
 class IOExpander16 {
 public:
 #if defined(LPF_SWITCHING_DL2MAN_USDX_REV2_BETA)
-#define IOEXP16_ADDR  0x74  // PCA9539 with A1..A0 set to 0     https://www.nxp.com/docs/en/data-sheet/PCA9539_PCA9539R.pdf
+	static const uint8_t ioexp16_addr = 0x74;  // PCA9539 with A1..A0 set to 0
 #elif defined(LPF_SWITCHING_DL2MAN_USDX_REV2)
-#define IOEXP16_ADDR  0x24  // TCA/PCA9555 with A2=1 A1..A0=0   https://www.ti.com/lit/ds/symlink/tca9555.pdf
+	static const uint8_t ioexp16_addr = 0x24;  // TCA/PCA9555 with A2=1 A1..A0=0
 #else
-#define IOEXP16_ADDR  0x20  // TCA/PCA9555 with A2=0 A1..A0=0   https://www.ti.com/lit/ds/symlink/tca9555.pdf
+	static const uint8_t ioexp16_addr = 0x20;  // TCA/PCA9555 with A2=0 A1..A0=0
 #endif
-	inline void SendRegister(uint8_t reg, uint8_t val) { i2c.begin(); i2c.beginTransmission(IOEXP16_ADDR); i2c.write(reg); i2c.write(val); i2c.endTransmission(); }
+	inline void SendRegister(uint8_t reg, uint8_t val) { i2c.begin(); i2c.beginTransmission(ioexp16_addr); i2c.write(reg); i2c.write(val); i2c.endTransmission(); }
 	inline void init() { write(0U); } //IO0, IO1 as input, IO0 to 0, IO0 as output, IO1 to 0, IO1 as output
 	inline void write(uint16_t data) { SendRegister(0x07, 0xff);  SendRegister(0x06, 0xff);/*Common last!*/ SendRegister(0x02, data); SendRegister(0x06, 0x00);/*Common first!*/ SendRegister(0x03, data >> 8); SendRegister(0x07, 0x00); }  // output port cmd: write bits D15-D0 to IO1.7-0.0;
 };
@@ -2467,9 +2616,11 @@ volatile uint8_t vox_thresh = (1 << 1); //(1 << 2);
 #endif
 volatile uint8_t drive = 8;   // hmm.. drive>2 impacts cpu load..why?
 
-static uint8_t cat_enabled = true;  // G8RDI mod - added
+// Internal compatibility shim: if CAT is compiled in, this flag must remain ON.
+// It exists only because the old _SERIAL/cat_active LCD/UART sharing path is fragile.
+static uint8_t cat_enabled = true;
 #ifdef QUAD
-static uint8_t quad_enabled = false;  // G8RDI mod - added run time enabling
+static uint8_t quad_enabled = true;  // Default ON for the current baseline; EEPROM may still override this.
 #endif
 
 volatile uint8_t quad = 0;
@@ -2618,7 +2769,9 @@ void dsp_tx()
 
 volatile uint16_t acc;
 volatile uint32_t cw_offset;
+#ifdef CW_VOLUME
 volatile uint8_t tone_vol = 11;
+#endif
 volatile uint8_t cw_tone = 1;
 const uint32_t tones[] = { F_MCU * 700ULL / 20000000, F_MCU * 600ULL / 20000000, F_MCU * 700ULL / 20000000 };  // G8RDI todo ULL to divisor?
 
@@ -2655,7 +2808,7 @@ void dsp_tx_cw()
 #ifdef CW_VOLUME
 	OCR1AL = (tone_vol ? (p_sin >> (16 - tone_vol)) : 0) + 128;  // xyzzy G8RDI mod - added for CW tone volume
 #else
-	OCR1AL = (p_sin >> (16 - volume)) + 128;
+	OCR1AL = (p_sin >> 5) + 128;  // preserve the historical fixed CW sidetone level
 #endif
 }
 
@@ -2812,35 +2965,6 @@ uint8_t wpm = 25;
 #define CW_WORD_GAP       6   // tolerate long letter gaps; call it a word only at 6 dit
 #define CW_TIMEOUT_GAP    4   // submit a character even if the next element starts late
 #define CW_GAP_MS(n, d)   ((hightimesavg * (uint32_t)(n)) / (d))
-
-#ifdef CW_DEBUG_DISPLAY
-uint16_t cw_debug_ms(uint32_t value)
-{
-	return (value > 999) ? 999 : value;
-}
-
-void show_cw_debug_line()
-{
-	if (rit_edit) {
-		render_status_line();
-		stepsize_showcursor();
-		return;
-	}
-	static uint32_t next = 0;
-	if (millis() < next) return;
-	next = millis() + 250;
-	lcd.noCursor();
-	lcd.setCursor(0, 1);
-	lcd.print(F("CW"));
-	lcd.print(cw_signal_present ? '*' : ' ');
-	lcd.print('D'); lcd.print(cw_debug_ms(hightimesavg));
-	lcd.print('H'); lcd.print(cw_debug_ms(highduration));
-	lcd.print('L'); lcd.print(cw_debug_ms(lowduration));
-	lcd.print('S'); lcd.print(sym);
-	lcd_blanks();
-	stepsize_showcursor();
-}
-#endif
 
 inline uint32_t cw_letter_gap()
 {
@@ -4573,7 +4697,7 @@ static int32_t vfo[] = { 7074000, 14074000 };
 static uint8_t vfomode[] = { USB, USB };
 enum vfo_t { VFOA = 0, VFOB = 1, SPLIT = 2 };
 volatile uint8_t vfosel = VFOA;
-volatile int32_t rit = 0;	// GW8RDI mod - changed to int32_t from int16_t
+volatile int16_t rit = 0;
 volatile uint8_t rit_edit = false;
 #ifdef CAT_XO_CMD
 volatile int32_t tit = 0;	// GW8RDI mod - added Transit offset, used with Quantum Spectrum module
@@ -4940,7 +5064,7 @@ void switch_rxtx(uint8_t tx_enable)
 uint8_t rx_ph_q = 90;
 
 #ifdef QCX
-#define CAL_IQ 1
+//#define CAL_IQ 1  // Сервисную I/Q-калибровку пока держим выключенной, не удаляя код насовсем.
 #ifdef CAL_IQ
 int16_t cal_iq_dummy = 0;
 // RX I/Q calibration procedure: terminate with 50 ohm, enable CW filter, adjust R27, R24, R17 subsequently to its minimum side-band rejection value in dB
@@ -5026,11 +5150,10 @@ void process_encoder_tuning_step(int8_t steps)
 #endif
 	int32_t stepval = stepsizes[stepsize];
 	//if(stepsize < STEP_100) freq %= 1000; // when tuned and stepsize > 100Hz then forget fine-tuning details
-	if (rit_edit) {
-		rit += steps * stepval;
-		//rit = max(-9999, min(9999, rit));
-		rit = max(-99999, min(99999, rit));	// GW8RDI - mod changed to support +/- 99 KHz RIT receiver offset
-	}
+		if (rit_edit) {
+				rit += steps * stepval;
+				rit = max(-10000, min(10000, rit));	// Limit RIT to +/-10 kHz.
+			}
 	else {
 		freq += steps * stepval;
 		freq = clamp_freq_hz(freq);
@@ -5043,6 +5166,7 @@ void process_encoder_tuning_step(int8_t steps)
 #define AUTO_TUNE_MAX_MS      600
 #define AUTO_TUNE_IDLE_MS     900
 #define AUTO_TUNE_SETTLE_MS   160
+#define AUTO_TUNE_PEAK_SETTLE_MS 260
 #define AUTO_TUNE_CONFIRM_MS  350
 #define AUTO_TUNE_HOLD_MS     10000
 
@@ -5053,9 +5177,13 @@ static uint32_t auto_tune_last = 0;
 static uint32_t auto_tune_next = 0;
 static uint32_t auto_tune_step_time = 0;
 static uint32_t auto_tune_hold_until = 0;
-static uint32_t scan_candidate_since = 0;
-static uint8_t scan_stop = 0;
+static uint32_t scan_candidate_at = 0;
+static uint8_t scan_stop = 2;  // Default ScanStop = +3 dB above learned noise floor.
 static int16_t scan_min_dbm = 127;
+static int16_t scan_peak_dbm = -127;
+static int32_t scan_peak_freq = 0;
+static uint8_t scan_peak_span = 0;
+static uint16_t scan_peak_step_hz = 0;
 
 inline int16_t scan_stop_db_margin()
 {
@@ -5066,12 +5194,27 @@ inline void auto_tune_mark_step(uint32_t now)
 {
 	smeter_reset_peak();
 	auto_tune_step_time = now;
-	scan_candidate_since = 0;
+	scan_candidate_at = 0;
+}
+
+// Entering a peak-search phase should force a real frequency step first,
+// then a settled measurement on the next poll.
+inline void auto_tune_arm_peak_step(uint32_t now)
+{
+	auto_tune_next = now;
+	auto_tune_step_time = 0;
+	scan_candidate_at = 0;
 }
 
 inline void scan_stop_reset_levels()
 {
 	scan_min_dbm = 127;
+}
+
+inline void auto_tune_move_hz(int8_t dir, uint16_t hz)
+{
+	freq = clamp_freq_hz(freq + ((dir > 0) ? (int32_t)hz : -(int32_t)hz));
+	change = true;
 }
 
 void auto_tune_stop()
@@ -5084,42 +5227,58 @@ void auto_tune_stop()
 	auto_tune_next = 0;
 	auto_tune_step_time = 0;
 	auto_tune_hold_until = 0;
-	scan_candidate_since = 0;
+	scan_candidate_at = 0;
+	scan_peak_freq = 0;
+	scan_peak_span = 0;
+	scan_peak_step_hz = 0;
 	scan_stop_reset_levels();
-}
-
-bool auto_tune_active()
-{
-	return (auto_tune_count >= AUTO_TUNE_START_STEPS) && auto_tune_interval;
 }
 
 void auto_tune_track(int8_t steps)
 {
+	if (!steps) return;
 	uint32_t now = millis();
 	int8_t dir = (steps > 0) ? 1 : -1;
+	uint8_t burst_steps = abs(steps);
+	if (burst_steps > AUTO_TUNE_START_STEPS) burst_steps = AUTO_TUNE_START_STEPS;
+	uint8_t burst_credit = burst_steps;
+	if (scan_stop && burst_steps > 1) burst_credit <<= 1;
+	if (burst_credit > AUTO_TUNE_START_STEPS) burst_credit = AUTO_TUNE_START_STEPS;
 
 	if ((auto_tune_dir != dir) || (auto_tune_last && ((now - auto_tune_last) > AUTO_TUNE_IDLE_MS))) {
 		smeter_scan_refresh = 1;
 		auto_tune_dir = dir;
-		auto_tune_count = 0;
-		auto_tune_interval = 0;
+		auto_tune_count = burst_credit;
+		auto_tune_interval = (burst_steps > 1) ? AUTO_TUNE_MIN_MS : 0;
 		auto_tune_last = now;
 		auto_tune_hold_until = 0;
-		scan_candidate_since = 0;
+		scan_candidate_at = 0;
+		scan_peak_freq = 0;
+		scan_peak_span = 0;
+		scan_peak_step_hz = 0;
 		scan_stop_reset_levels();
+		if (auto_tune_count >= AUTO_TUNE_START_STEPS) {
+			uint16_t wait = (scan_stop && (auto_tune_interval < AUTO_TUNE_SETTLE_MS)) ? AUTO_TUNE_SETTLE_MS : auto_tune_interval;
+			auto_tune_next = now + wait;
+			auto_tune_mark_step(now);
+		}
 		return;
 	}
 
 	if (auto_tune_last) {
 		uint16_t dt = now - auto_tune_last;
-		if ((dt >= AUTO_TUNE_MIN_MS) && (dt <= AUTO_TUNE_MAX_MS)) {
-			auto_tune_interval = (auto_tune_interval) ? (auto_tune_interval * 3 + dt) / 4 : dt;
-				if (auto_tune_count < AUTO_TUNE_START_STEPS) auto_tune_count++;
-					if (auto_tune_count >= AUTO_TUNE_START_STEPS) {
-						smeter_scan_refresh = 1;
-						uint16_t wait = (scan_stop && (auto_tune_interval < AUTO_TUNE_SETTLE_MS)) ? AUTO_TUNE_SETTLE_MS : auto_tune_interval;
-					auto_tune_next = now + wait;
-					auto_tune_mark_step(now);
+		if (((dt >= AUTO_TUNE_MIN_MS) && (dt <= AUTO_TUNE_MAX_MS)) || ((burst_steps > 1) && (dt <= AUTO_TUNE_MAX_MS))) {
+			uint16_t effective_dt = ((burst_steps > 1) && (dt < AUTO_TUNE_MIN_MS)) ? AUTO_TUNE_MIN_MS : dt;
+			auto_tune_interval = (auto_tune_interval) ? (auto_tune_interval * 3 + effective_dt) / 4 : effective_dt;
+			if (auto_tune_count < AUTO_TUNE_START_STEPS) {
+				uint8_t remaining = AUTO_TUNE_START_STEPS - auto_tune_count;
+				auto_tune_count += (burst_credit < remaining) ? burst_credit : remaining;
+			}
+			if (auto_tune_count >= AUTO_TUNE_START_STEPS) {
+				smeter_scan_refresh = 1;
+				uint16_t wait = (scan_stop && (auto_tune_interval < AUTO_TUNE_SETTLE_MS)) ? AUTO_TUNE_SETTLE_MS : auto_tune_interval;
+				auto_tune_next = now + wait;
+				auto_tune_mark_step(now);
 			}
 		}
 		else {
@@ -5133,34 +5292,85 @@ void auto_tune_track(int8_t steps)
 
 void auto_tune_poll()
 {
+	if (rit_edit) { auto_tune_stop(); return; }
 	if ((auto_tune_count < AUTO_TUNE_START_STEPS) || !auto_tune_interval) return;
 	uint32_t now = millis();
 	if (auto_tune_hold_until) {
 		if ((int32_t)(now - auto_tune_hold_until) < 0) return;
 		auto_tune_hold_until = 0;
-		scan_candidate_since = 0;
+		scan_candidate_at = 0;
+		scan_peak_freq = 0;
+		scan_peak_span = 0;
+		scan_peak_step_hz = 0;
 		scan_stop_reset_levels();
 		auto_tune_next = now;
 	}
-	if (auto_tune_step_time && ((uint32_t)(now - auto_tune_step_time) >= AUTO_TUNE_SETTLE_MS)) {
+	uint16_t settle = scan_peak_span ? AUTO_TUNE_PEAK_SETTLE_MS : AUTO_TUNE_SETTLE_MS;
+	if (auto_tune_step_time && ((uint32_t)(now - auto_tune_step_time) >= settle)) {
 		smeter_update_dbm();
 		smeter_render();
 		if (scan_stop) {
-			if ((scan_min_dbm != 127) && (dbm >= (scan_min_dbm + scan_stop_db_margin()))) {
-				if (!scan_candidate_since) scan_candidate_since = now;
-				if ((uint32_t)(now - scan_candidate_since) >= AUTO_TUNE_CONFIRM_MS) {
-					auto_tune_hold_until = now + AUTO_TUNE_HOLD_MS;
-					scan_candidate_since = 0;
+			if (scan_peak_span) {
+				if (dbm >= scan_peak_dbm) {
+					scan_peak_dbm = dbm;
+					scan_peak_freq = freq;
+				}
+				if ((dbm + 1 < scan_peak_dbm) || (--scan_peak_span == 0)) {
+					freq = scan_peak_freq;
+					change = true;
+					if (scan_peak_step_hz > 10) {
+						scan_peak_dbm = -127;
+						scan_peak_freq = freq;
+						scan_peak_step_hz = 10;
+						scan_peak_span = 2;
+						auto_tune_arm_peak_step(now);
+					}
+					else {
+						auto_tune_hold_until = now + AUTO_TUNE_HOLD_MS;
+						scan_peak_span = 0;
+						scan_peak_step_hz = 0;
+					}
 				}
 				return;
 			}
-			scan_candidate_since = 0;
+			if ((scan_min_dbm != 127) && (dbm >= (scan_min_dbm + scan_stop_db_margin()))) {
+				if (!scan_candidate_at) scan_candidate_at = now;
+				if ((uint32_t)(now - scan_candidate_at) >= AUTO_TUNE_CONFIRM_MS) {
+					scan_peak_dbm = dbm;
+					scan_peak_freq = freq;
+					switch (filt) {
+					case 5:
+					case 6:
+					case 7:
+						scan_peak_step_hz = 20;
+						scan_peak_span = 2;
+						break;
+					case 4:
+						scan_peak_step_hz = 50;
+						scan_peak_span = 3;
+						break;
+					default:
+						scan_peak_step_hz = 100;
+						scan_peak_span = 3;
+						break;
+					}
+					auto_tune_arm_peak_step(now);
+					scan_candidate_at = 0;
+				}
+				return;
+			}
+			scan_candidate_at = 0;
 			if (dbm < scan_min_dbm) scan_min_dbm = dbm;
 		}
 	}
 	if ((int32_t)(now - auto_tune_next) >= 0) {
-		process_encoder_tuning_step(auto_tune_dir);
-		uint16_t wait = (scan_stop && (auto_tune_interval < AUTO_TUNE_SETTLE_MS)) ? AUTO_TUNE_SETTLE_MS : auto_tune_interval;
+		if (scan_peak_span) auto_tune_move_hz(auto_tune_dir, scan_peak_step_hz);
+		else process_encoder_tuning_step(auto_tune_dir);
+		uint16_t wait = auto_tune_interval;
+		if (scan_stop) {
+			uint16_t min_wait = scan_peak_span ? AUTO_TUNE_PEAK_SETTLE_MS : AUTO_TUNE_SETTLE_MS;
+			if (wait < min_wait) wait = min_wait;
+		}
 		auto_tune_next = now + wait;
 		auto_tune_mark_step(now);
 	}
@@ -5169,12 +5379,12 @@ void auto_tune_poll()
 void stepsize_showcursor()
 {
 	if (rit_edit && menumode == 0) {
-		static const uint8_t rit_cursor_pos[] = { 5, 5, 5, 5, 5, 6, 8, 8, 9, 9 };
+		static const uint8_t rit_cursor_pos[] = { 5, 5, 5, 5, 5, 6, 7, 8, 9, 9 };
 		lcd.setCursor(rit_cursor_pos[stepsize], 1);  // Курсор показывает разряд смещения RIT на нижней строке.
 		lcd.cursor();
 		return;
 	}
-	static const uint8_t cursor_pos[] = { 0, 1, 2, 2, 3, 4, 4, 6, 7, 7 };
+	static const uint8_t cursor_pos[] = { 0, 1, 2, 2, 3, 4, 5, 6, 7, 7 };
 	lcd.setCursor(cursor_pos[stepsize], 0);  // Курсор показывает разряд частоты на верхней строке.
 	lcd.cursor();
 }
@@ -5310,7 +5520,6 @@ void render_status_line()
 	lcd.setCursor(0, 1);
 	lcd.print(mode_label[mode]);
 	lcd.print(' ');
-	lcd.print(cat_enabled ? 'C' : 'c');
 #ifdef QUAD
 	lcd.print(quad_enabled ? 'Q' : 'q');
 #else
@@ -5321,7 +5530,7 @@ void render_status_line()
 	lcd.print(nr ? 'N' : 'n');
 	lcd.print(agc ? 'A' : 'a');
 	lcd.print(main_state_char());
-	lcd.print(' ');
+	lcd.print(F("  "));
 	lcd.print(filt_compact);
 }
 
@@ -5426,7 +5635,7 @@ void scanStopAction(uint8_t action)
 		encoder_val = 0;
 
 		lcd.noCursor();
-		printlabel(action, 0x1D, F("ScanStp"));
+		printlabel(action, 0x1D, F("Squelch"));
 		if (scan_stop) {
 			lcd.print('+');
 			lcd.print(scan_stop_db_margin());
@@ -5445,14 +5654,6 @@ void scanStopAction(uint8_t action)
 		actionCommon(action, (uint8_t*)&scan_stop, sizeof(scan_stop));
 		break;
 	}
-}
-
-void apply_backlight()
-{
-	if (backlight)
-			PORTD |= BACKLIGHT_MASK;
-		else
-			PORTD &= ~BACKLIGHT_MASK;
 }
 
 template<typename T> void paramAction(uint8_t action, volatile T & value, uint8_t menuid, const __FlashStringHelper * label, const char* enumArray[], int32_t _min, int32_t _max, bool continuous) {
@@ -5575,47 +5776,44 @@ inline void normalize_smode()
 }
 #ifdef SWR_METER
 ///const char* swr_label[] = { "OFF", "FWD-SWR", "FWD-REF", "VFWD-VREF" };
-const char* swr_label[] = { "OFF", "FwdSWR", "FwdRef", "VFwdVREF" };  // GW8RDI mod - byte saving
+const char* swr_label[] = { "OFF", "FwdSWR", "FwdRef", "VFwdVREF" };
 #endif
 const char* cw_tone_label[] = { "700", "600" };
 #ifdef KEYER
-const char* keyer_mode_label[] = { "IambicA", "IambicB","Straight" };  // GW8RDI mod - byte saving was "Iambic A"
+const char* keyer_mode_label[] = { "IambicA", "IambicB","Straight" };
 #endif
 const char* agc_label[] = { "OFF", "Fast", "Slow" };
 
 #define _N(a) sizeof(a)/sizeof(a[0])
 
-#define N_PARAMS 44+4  // number of (visible) parameters  // G8RDI mod +4 for added visible menu items
+#define N_PARAMS 43+4  // number of (visible) parameters  // G8RDI mod +4 for added visible menu items
 #ifdef KEEP_BAND_DATA
 #ifdef I_PARAMS
 #undef I_PARAMS
 #endif
 #define I_PARAMS 5+9
-enum params_t { _NULL, VOLUME, MODE, FILTER, BAND, STEP, VFOSEL, RIT, AGC, NR, ATT, ATT2, SMETER, SCAN_STOP, SWRMETER, CWDEC, CWTONE, CWOFF, SEMIQSK, KEY_WPM, KEY_MODE, KEY_PIN, KEY_TX, TONE_VOL, VOX, VOXGAIN, DRIVE, TXDELAY, MOX, CWINTERVAL, CWMSG1, CWMSG2, CWMSG3, CWMSG4, CWMSG5, CWMSG6, PWM_MIN, PWM_MAX, SIFXTAL, IQ_ADJ, CAT_ACTIVE, QUAD_ACTIVE, CALIB, SR, CPULOAD, PARAM_A, PARAM_B, PARAM_C, BACKL, FREQA, FREQB, MODEA, MODEB, VERS, BAND_DATA0, BAND_DATA1, BAND_DATA2, BAND_DATA3, BAND_DATA4, BAND_DATA5, BAND_DATA6, BAND_DATA7, BAND_DATA8, ALL = 0xff };
+enum params_t { _NULL, VOLUME, MODE, FILTER, BAND, STEP, VFOSEL, RIT, AGC, NR, ATT, ATT2, SMETER, SCAN_STOP, SWRMETER, CWDEC, CWTONE, CWOFF, SEMIQSK, KEY_WPM, KEY_MODE, KEY_PIN, KEY_TX, TONE_VOL, VOX, VOXGAIN, DRIVE, TXDELAY, MOX, CWINTERVAL, CWMSG1, CWMSG2, CWMSG3, CWMSG4, CWMSG5, CWMSG6, PWM_MIN, PWM_MAX, SIFXTAL, IQ_ADJ, CAT_ACTIVE, QUAD_ACTIVE, CALIB, SR, CPULOAD, PARAM_A, PARAM_B, PARAM_C, FREQA, FREQB, MODEA, MODEB, VERS, BAND_DATA0, BAND_DATA1, BAND_DATA2, BAND_DATA3, BAND_DATA4, BAND_DATA5, BAND_DATA6, BAND_DATA7, BAND_DATA8, ALL = 0xff };
 #else
 #ifdef I_PARAMS
 #undef I_PARAMS
 #endif
 #define I_PARAMS 5
-enum params_t { _NULL, VOLUME, MODE, FILTER, BAND, STEP, VFOSEL, RIT, AGC, NR, ATT, ATT2, SMETER, SCAN_STOP, SWRMETER, CWDEC, CWTONE, CWOFF, SEMIQSK, KEY_WPM, KEY_MODE, KEY_PIN, KEY_TX, TONE_VOL, VOX, VOXGAIN, DRIVE, TXDELAY, MOX, CWINTERVAL, CWMSG1, CWMSG2, CWMSG3, CWMSG4, CWMSG5, CWMSG6, PWM_MIN, PWM_MAX, SIFXTAL, IQ_ADJ, CAT_ACTIVE, QUAD_ACTIVE, CALIB, SR, CPULOAD, PARAM_A, PARAM_B, PARAM_C, BACKL, FREQA, FREQB, MODEA, MODEB, VERS, ALL = 0xff };
+enum params_t { _NULL, VOLUME, MODE, FILTER, BAND, STEP, VFOSEL, RIT, AGC, NR, ATT, ATT2, SMETER, SCAN_STOP, SWRMETER, CWDEC, CWTONE, CWOFF, SEMIQSK, KEY_WPM, KEY_MODE, KEY_PIN, KEY_TX, TONE_VOL, VOX, VOXGAIN, DRIVE, TXDELAY, MOX, CWINTERVAL, CWMSG1, CWMSG2, CWMSG3, CWMSG4, CWMSG5, CWMSG6, PWM_MIN, PWM_MAX, SIFXTAL, IQ_ADJ, CAT_ACTIVE, QUAD_ACTIVE, CALIB, SR, CPULOAD, PARAM_A, PARAM_B, PARAM_C, FREQA, FREQB, MODEA, MODEB, VERS, ALL = 0xff };
 #endif
 #define N_ALL_PARAMS (N_PARAMS+I_PARAMS)  // number of parameters
 
 const uint8_t menu_general[] PROGMEM = {
-	VOLUME, BAND, VFOSEL,
 #ifdef VOX_ENABLE
 	VOX,
-#endif
-#ifdef CAT
-	CAT_ACTIVE,
 #endif
 #ifdef QUAD
 	QUAD_ACTIVE,
 #endif
-	BACKL
+	// BACKL,
+	// BACKL_TEST
 };
 const uint8_t menu_rx[] PROGMEM = {
-	MODE, FILTER, STEP, AGC, NR, ATT, ATT2, SMETER, SCAN_STOP,
+	MODE, FILTER, AGC, NR, ATT, ATT2, SMETER, SCAN_STOP,
 #ifdef SWR_METER
 	SWRMETER,
 #endif
@@ -5735,7 +5933,7 @@ int8_t paramAction(uint8_t action, uint8_t id = ALL)  // list of parameters
 	if (id == ALL) for (id = 1; id != N_ALL_PARAMS + 1; id++) paramAction(action, id);  // for all parameters
 
 	switch (id) {    // Visible parameters
-	case VOLUME:  paramAction(action, volume, 0x11, F("Vol"), NULL, -1, 16, false); break;  // GW8RDI mod - "Volume"
+	case VOLUME:  paramAction(action, volume, 0x11, NULL, NULL, -1, 16, false); break;  // Hidden from menu; still used by encoder-hold volume control and EEPROM.
 	case MODE:    paramAction(action, mode, 0x12, F("Mode"), mode_label, 0, _N(mode_label) - 1, false); break;
 	case FILTER:  paramAction(action, filt, 0x13, F("BW"), filt_label, 0, _N(filt_label) - 1, false); break;
 #ifndef TRUSDX
@@ -5743,7 +5941,6 @@ int8_t paramAction(uint8_t action, uint8_t id = ALL)  // list of parameters
 #else
   case BAND:    paramAction(action, bandval, 0x14, F("Band"), band_label, 1, _N(band_label) - 6, false); break;  // G8RDI mod - for 5-band USDX
 #endif
-	case STEP:    paramAction(action, stepsize, 0x15, F("Step"), stepsize_label, 0, _N(stepsize_label) - 1, false); break;
 	case VFOSEL:  paramAction(action, vfosel, 0x16, F("VFO"), vfosel_label, 0, _N(vfosel_label) - 1, false); break;
 #ifdef RIT_ENABLE
 	case RIT:     paramAction(action, rit_edit, 0x17, F("RIT"), offon_label, 0, 1, false); break;
@@ -5769,13 +5966,13 @@ int8_t paramAction(uint8_t action, uint8_t id = ALL)  // list of parameters
 		break;
 	case ATT:     paramAction(action, att, 0x1A, F("ATT"), att_label, 0, 7, false); break;
 	case ATT2:    paramAction(action, att2, 0x1B, F("ATT2"), NULL, 0, 16, false); break;
-	case SMETER:  paramAction(action, smode, 0x1C, F("S"), smode_label, 0, _N(smode_label) - 1, false); break;
+	case SMETER:  paramAction(action, smode, 0x1C, F("S-Meter"), smode_label, 0, _N(smode_label) - 1, false); break;
 	case SCAN_STOP: scanStopAction(action); break;
 #ifdef SWR_METER
 	case SWRMETER:  paramAction(action, swrmeter, 0x1E, F("SWR"), swr_label, 0, _N(swr_label) - 1, false); break;
 #endif
 #ifdef CW_DECODER
-	case CWDEC:   paramAction(action, cwdec, 0x21, F("CW Dec"), offon_label, 0, 1, false); break;
+	case CWDEC:   paramAction(action, cwdec, 0x21, F("CW decoder"), offon_label, 0, 1, false); break;
 #endif
 #ifdef FILTER_700HZ
 	case CWTONE:  if (dsp_cap) paramAction(action, cw_tone, 0x22, F("CW Tone"), cw_tone_label, 0, 1, false); break;
@@ -5795,7 +5992,7 @@ int8_t paramAction(uint8_t action, uint8_t id = ALL)  // list of parameters
 #endif
 	case KEY_TX:   paramAction(action, practice, 0x28, F("Practice"), offon_label, 0, 1, false); break;
 #ifdef CW_VOLUME
-	case TONE_VOL: paramAction(action, tone_vol, 0x29, F("Tone Vol"), NULL, 0, 16, false); break;
+	case TONE_VOL: paramAction(action, tone_vol, 0x29, F("Tone volume"), NULL, 0, 16, false); break;
 #endif
 #ifdef VOX_ENABLE
 	case VOX:     paramAction(action, vox, 0x31, F("VOX"), offon_label, 0, 1, false); break;
@@ -5825,34 +6022,16 @@ int8_t paramAction(uint8_t action, uint8_t id = ALL)  // list of parameters
 	case PWM_MAX: paramAction(action, pwm_max, 0x82, F("PA max"), NULL, pwm_min, 255, false); break;
   ///case PWM_MAX: paramAction(action, pwm_max, 0x82, F("PA Bias max"), NULL, pwm_min, 255, false); break;
 	case SIFXTAL: paramAction(action, si5351.fxtal, 0x83, F("Ref"), NULL, 14000000, 28000000, false); break;
-	case IQ_ADJ:  paramAction(action, rx_ph_q, 0x84, F("IQ"), NULL, 0, 180, false); break;
+	case IQ_ADJ:  paramAction(action, rx_ph_q, 0x84, F("IQ Test/Cal."), NULL, 0, 180, false); break;
 #ifdef CAL_IQ
-	case CALIB:   if (dsp_cap != SDR) paramAction(action, cal_iq_dummy, 0x85, F("IQ Test/Cal."), NULL, 0, 0, false); break;
+	case CALIB:   if (dsp_cap != SDR) paramAction(action, cal_iq_dummy, 0x85, F("IQ Cal"), NULL, 0, 0, false); break;
 #endif
 #ifdef CAT
-#if defined(CAT_FAST) || defined(CAT_STREAMING)
-	case CAT_ACTIVE: paramAction(action, cat_enabled, 0x86, F("CAT115K"), offon_label, 0, 1, false);       // CAT115K2-81N
-  if (cat_enabled)  // G8RDI mod 230401
-	{
-		Serial.begin(16000000ULL * 115200 / F_MCU); // corrected for F_CPU=20M
-		Command_IF();
-#if !defined(OLED) && defined(TESTBENCH)
-		smode = 0;  // In case of LCD, turn off smeter
-#endif
-	}
-  break;
-#else
-	case CAT_ACTIVE: paramAction(action, cat_enabled, 0x86, F("CAT38K"), offon_label, 0, 1, false);   // CAT38K4-81N
-  if (cat_enabled)  // G8RDI mod 230401
-	{
-		Serial.begin(16000000ULL * 38400 / F_MCU); // corrected for F_CPU=20M
-		Command_IF();
-#if !defined(OLED) && defined(TESTBENCH)
-		smode = 0;  // In case of LCD, turn off smeter
-#endif
-	}
-  break;
-#endif
+	case CAT_ACTIVE:
+		// Hidden compatibility slot: keep EEPROM layout stable and force CAT ON.
+		actionCommon(SKIP, (uint8_t*)&cat_enabled, sizeof(cat_enabled));
+		cat_enabled = 1;
+		break;
 #endif
 #ifdef QUAD
 	case QUAD_ACTIVE: paramAction(action, quad_enabled, 0x87, F("QUAD"), offon_label, 0, 1, false); break;
@@ -5864,11 +6043,6 @@ int8_t paramAction(uint8_t action, uint8_t id = ALL)  // list of parameters
 	case PARAM_B: paramAction(action, param_b, 0x94, F("ParamB"), NULL, INT16_MIN, INT16_MAX, false); break;
 	case PARAM_C: paramAction(action, param_c, 0x95, F("ParamC"), NULL, INT16_MIN, INT16_MAX, false); break;
 #endif
-	case BACKL:
-		paramAction(action, backlight, 0xA1, F("Light"), offon_label, 0, 1, false);
-		if ((action == LOAD) && (backlight > 1)) backlight = 1;
-		if ((action == UPDATE) || (action == UPDATE_MENU) || (action == LOAD)) apply_backlight();
-		break;   // GW8RDI "Backlight" workaround for varying N_PARAM and not being able to overflowing default cases properly
 		// Invisible parameters
 	case FREQA:   paramAction(action, vfo[VFOA], 0, NULL, NULL, 0, 0, false); break;
 	case FREQB:   paramAction(action, vfo[VFOB], 0, NULL, NULL, 0, 0, false); break;
@@ -5999,11 +6173,7 @@ void initPins() {
 	pinMode(PD4, OUTPUT);
 	pinMode(PD5, OUTPUT);
 #else
-#if defined(RED_CORNERS) || defined(BLACK_BRICK)
-	pinMode(PD5, OUTPUT);    // G8RDI mod as drives LCD 1602 backlight
-#else
-	pinMode(PD3, OUTPUT);    // G8RDI mod - uSDX+ have backlight control
-#endif
+	pinMode(BACKLIGHT_PIN, OUTPUT);    // Backlight control: PD3 on the shared LCD D7 line or PD5 on specific Red Corners variants.
 #endif
 }
 
@@ -6255,9 +6425,9 @@ void Command_XO()		// GW8RDI mod - added set TX offset, i.e. "XO000000012000;"
 void Command_RTS()		// GW8RDI mod - added set RIT offset, i.e. "RTS30000;"
 {
 	int32_t fq = catParseInt(CATcmd + 3);  // GW8RDI mod - CAT freq error check
-	if (fq >= -99999 && fq <= 99999)   // Ignore corrupted freq data
+	if (fq >= -10000 && fq <= 10000)   // Ignore corrupted data outside the supported +/-10 kHz RIT range
 	{
-		rit = fq;
+		rit = (int16_t)fq;
 		rit_edit = false;
 		change = true;
 	}
@@ -6401,7 +6571,12 @@ void setup()
 #endif
 
 	show_banner();
-	lcd.setCursor(0, 0); lcd.print(F(STARTUP_CALLSIGN));
+	lcd.setCursor(0, 0);
+#if defined(DEBUG_G8RDI)
+	lcd.print(F("DEBUG  "));
+#else
+	lcd.print(F("R3VAF  "));
+#endif
 	lcd.setCursor(7, 0); lcd.print(F("R")); lcd.print(F(VERSION)); lcd_blanks();
 	delay(500);	// GW8RDI MOD - SHOW LONGER
 
@@ -6659,7 +6834,7 @@ void setup()
 	static const uint32_t CAT_BAUD = 38400;
 #endif
 
-	if (cat_enabled)  // G8RDI mod
+	if (cat_enabled)
 	{
 		Serial.begin(16000000ULL * CAT_BAUD / F_MCU); // corrected for F_CPU=20M
 		Command_IF();
@@ -6733,11 +6908,6 @@ void loop()
 #endif  //CW_DECODER
 
 		if (menumode == 0) { // in main
-#if defined(CW_DECODER) && defined(CW_DEBUG_DISPLAY)
-			if ((mode == CW) && cwdec)
-				show_cw_debug_line();
-			else
-#endif
 #ifdef CW_DECODER
 			if ((mode == CW) && cwdec && (!rit_edit) && (!tx) && (!semi_qsk_timeout)) {
 				smeter();
@@ -6864,7 +7034,7 @@ void loop()
 
 	if (inv ^ _digitalRead(BUTTONS))   // Left-/Right-/Rotary-button (while not already pressed)
   {
-		if (auto_tune_active()) {
+		if ((auto_tune_count >= AUTO_TUNE_START_STEPS) && auto_tune_interval) {
 			auto_tune_stop();
 			encoder_val = 0;
 			for (; inv ^ _digitalRead(BUTTONS);) wdt_reset();
@@ -6899,15 +7069,32 @@ void loop()
 		}
 		else {  // hack: fast forward handling
 			event = (event & 0xf0) | ((encoder_val) ? PT : PLC/*PL*/);  // only alternate between push-long/turn when applicable
-		}
+			}
 
-		switch (event) {
+			if (rit_edit && menumode == 0) {
+				rit_edit = false;
+				stepsize = prev_stepsize[mode == CW];
+				change = true;
+				event = 0;
+			}
+
+			if (event) switch (event) {
 #ifndef ONEBUTTON
-		case BL | PL:  // Called when menu button pressed
+		case BL | PL:
+			if (menumode == 1) menumode = 2;
+			else if (menumode >= 2) { paramAction(SAVE, menu); menumode = 1; }
+			else {
+				vfosel = (vfosel == VFOA) ? VFOB : VFOA;
+				freq = vfo[vfosel % 2];
+				mode = vfomode[vfosel % 2];
+				apply_mode_defaults();
+				paramAction(SAVE, VFOSEL);
+				change = true;
+			}
+			break;
 		case BL | PLC: // or kept pressed
 			if (menumode == 1) menumode = 2;
 			else if (menumode >= 2) { paramAction(SAVE, menu); menumode = 1; }
-			else enter_menu();
 			break;
 		case BL | PT:
 			if (menumode) menumode = 1;
@@ -6927,8 +7114,8 @@ void loop()
 			break;
 		case BL | DC:
 			break;
-		case BR | SC:   // Mode change - Button Right, Single Click
-      changedMode = true; // GW8RDI 230401
+		case BR | SC:
+			changedMode = true; // GW8RDI 230401
 			break;
 		case BR | DC:
 			filt++;
@@ -7203,23 +7390,7 @@ void loop()
 					change = true;
 					si5351.iqmsa = 0;  // enforce PLL reset
 				}
-				if (menu == BAND) {
-					change = true;
-				}
 				//if(menu == NR){ if(mode == CW) nr = false; }
-				if (menu == VFOSEL) {
-					freq = vfo[vfosel % 2];
-					mode = vfomode[vfosel % 2];
-					apply_mode_defaults();
-					change = true;
-				}
-#ifdef RIT_ENABLE
-				if (menu == RIT) {
-					if (!rit_edit) rit = 0;
-					stepsize = (rit_edit) ? STEP_10 : STEP_500;
-					change = true;
-				}
-#endif
 				//if(menu == VOX){ if(vox){ vox_thresh-=1; } else { vox_thresh+=1; }; }
 				if (menu == ATT) { // post-handling ATT parameter
 					if (dsp_cap == SDR) {
@@ -7251,11 +7422,6 @@ void loop()
 				if (menu == IQ_ADJ) {
 					change = true;
 				}
-#ifdef CAL_IQ
-				if (menu == CALIB) {
-					if (dsp_cap != SDR) calibrate_iq(); menu = 0;
-				}
-#endif
 #ifdef KEYER
 				if (menu == KEY_WPM) {
 					loadWPM(keyer_speed);
@@ -7299,7 +7465,7 @@ void loop()
 		if (encoder_val) {  // process encoder tuning steps
 			int8_t steps = encoder_val;
 			process_encoder_tuning_step(steps);
-			auto_tune_track(steps);
+			if (!rit_edit) auto_tune_track(steps);
 			encoder_val = 0;
 		}
 		else {
