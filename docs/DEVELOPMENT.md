@@ -1,24 +1,10 @@
 # Development
 
-## Baseline
-
-Primary build:
-
-```bash
-platformio run -e uno
-```
-
-Local cache variant:
-
-```bash
-PLATFORMIO_CORE_DIR=.pio-core PLATFORMIO_SETTING_ENABLE_TELEMETRY=No platformio run -e uno
-```
-
 ## Workflow
 
 1. Make a small change.
-2. Build `uno`.
-3. If a feature flag changed, build the matching profile from `platformio.ini`.
+2. Verify that the baseline firmware still fits and behaves as expected.
+3. If a hardware or feature toggle changed, re-check the matching configuration.
 4. If flash/RAM changed materially, update `MEMORY.md`.
 5. If user-visible behavior changed, update `docs/USER_GUIDE_RU.md`.
 6. If fork-level behavior changed, update `CHANGELOG.md`.
@@ -33,7 +19,7 @@ PLATFORMIO_CORE_DIR=.pio-core PLATFORMIO_SETTING_ENABLE_TELEMETRY=No platformio 
 
 ## Before Flashing
 
-- `uno` must build successfully.
-- Flash must still fit comfortably inside `32256 B`.
+- Baseline firmware must still build successfully.
+- Flash must still fit inside `32256 B`.
 - No unexpected new warnings.
 - If EEPROM defaults changed, note that in the user guide.

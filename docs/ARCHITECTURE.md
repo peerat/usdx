@@ -13,13 +13,11 @@
 | Path | Purpose |
 | --- | --- |
 | `R3VAF_uSDR_7_01v.ino` | Main firmware source |
-| `platformio.ini` | Build profiles |
 | `MEMORY.md` | Size map |
 | `CHANGELOG.md` | Important fork changes |
 | `LICENSE.md` | Source and license notes |
 | `docs/USER_GUIDE_RU.md` | User-facing guide |
 | `docs/DEVELOPMENT.md` | Dev workflow |
-| `tools/size_profiles.sh` | Batch build helper |
 
 ## Firmware Structure
 
@@ -42,7 +40,7 @@ Main zones:
 - CAT:
   serial control protocol.
 
-## Supported Build Axes
+## Supported Configuration Axes
 
 - Hardware preset: `USDX_HW_*`
 - Display/UI preset: `USDX_UI_*`
