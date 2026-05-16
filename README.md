@@ -2,10 +2,13 @@
 
 Рабочий форк прошивки uSDX/uSDR для ATmega328P/Arduino Uno.
 
+![uSDX transceiver](usdx.png)
+
 ## Ownership
 
 - Current fork and maintenance: Peerat
 - Current GitHub repo: `https://github.com/peerat/usdx`
+- Current author channel: `https://t.me/ham33operator`
 - Base source project: `https://github.com/threeme3/QCX-SSB`
 - Base DSP/firmware author: Guido PE1NNZ
 - Prior major modification layer preserved in this fork: Rob Colclough GW8RDI
@@ -13,6 +16,15 @@
 
 Проект держится как практичная рабочая прошивка под реальное радио и как база
 для compile-time "трансформера" с hardware/UI/size профилями.
+
+## What Changed Relative To Base
+
+Эта ветка не переписывает базовую прошивку с нуля, а делает ее удобнее для
+живого использования на конкретном трансивере. Относительно базовой QCX-SSB/uSDX
+здесь изменены меню и кнопки, приведены в порядок дефолты под SSB/CW/FT8,
+добавлены CAT `115200`, SWR, автопрокрутка с адаптивной остановкой по сигналу,
+точная подстройка к локальному максимуму, более понятный экран и compile-time
+профили для разных вариантов железа и экономии памяти.
 
 ## Status
 

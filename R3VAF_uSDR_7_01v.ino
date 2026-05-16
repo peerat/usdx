@@ -1,12 +1,21 @@
 //  Текущая ветка:
 //  - сопровождающий форк: Peerat
 //  - GitHub форка: https://github.com/peerat/usdx
+//  - Telegram автора текущей ветки: https://t.me/ham33operator
 //
 //  Предыдущие авторы и базовые источники:
 //  - базовый проект QCX-SSB/uSDX: https://github.com/threeme3/QCX-SSB
 //  - основная DSP/firmware база: Guido PE1NNZ
 //  - крупный слой прошлых доработок этой ветки: Rob Colclough GW8RDI
 //  - в этой сборке сохранены и развиваются настройки/доработки R3VAF для uSDX/uSDR
+//
+//  Что изменено относительно базовой прошивки:
+//  - переработаны экран, меню и поведение кнопок/валкодера;
+//  - обновлены дефолты под SSB/CW/FT8 и живую работу с аппаратом;
+//  - включены CAT 115200 и SWR;
+//  - добавлены автопрокрутка частоты, адаптивная остановка по сигналу
+//    и точная подстройка к локальному максимуму;
+//  - добавлены compile-time профили под разное железо и разный бюджет flash.
 //
 //  Оригинальные авторские права и лицензии ниже сохранены без смыслового
 //  изменения. Английский текст MIT-лицензии оставлен как юридический оригинал.
@@ -101,8 +110,12 @@
 //  Автоскан:
 //  - быстрый равномерный поворот валкодера запускает автопрокрутку;
 //  - ScanStp в RX задает порог остановки относительно текущего шумового минимума;
-//  - при подозрении на сигнал прошивка сначала подтверждает уровень, затем держит
-//    частоту около 10 секунд и без действий пользователя продолжает скан;
+//  - при подозрении на сигнал прошивка сначала подтверждает уровень;
+//  - после подтверждения включается точная подстройка к локальному максимуму:
+//    20 Hz для узких CW, 50 Hz для 500 Hz, 100 Hz для широких фильтров;
+//  - затем выполняется короткий финальный проход с шагом 10 Hz;
+//  - после захвата частота удерживается около 10 секунд и без действий
+//    пользователя автоскан продолжает поиск дальше;
 //  - во время автосканирования курсор шага скрывается, чтобы не было артефактов LCD.
 //
 //  Локальный changelog R3VAF:
@@ -214,22 +227,12 @@
 #define USDX_HW_DEFAULT_BACKLIGHT_ACTIVE_LOW 0
 
 #if defined(USDX_HW_BLACK_BRICK) || defined(USDX_HW_RED_CORNERS)
-#undef USDX_HW_DEFAULT_BACKLIGHT_MASK
-#define USDX_HW_DEFAULT_BACKLIGHT_MASK 0x20
-#endif
-
-#if defined(USDX_HW_BLACK_BRICK) || defined(USDX_HW_RED_CORNERS)
 #undef USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY
 #undef USDX_HW_DEFAULT_ENABLE_SWR
 #undef USDX_HW_DEFAULT_F_XTAL
 #define USDX_HW_DEFAULT_ENABLE_SWAP_ROTARY 1
 #define USDX_HW_DEFAULT_ENABLE_SWR 1
 #define USDX_HW_DEFAULT_F_XTAL 25000000UL
-#endif
-
-#if defined(USDX_HW_RED_CORNERS)
-#undef USDX_HW_DEFAULT_BACKLIGHT_ACTIVE_LOW
-#define USDX_HW_DEFAULT_BACKLIGHT_ACTIVE_LOW 1
 #endif
 
 #if defined(USDX_HW_RED_BUTTONS) || defined(USDX_HW_WHITE_BUTTONS)
