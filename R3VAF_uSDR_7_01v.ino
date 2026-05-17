@@ -5936,7 +5936,7 @@ int8_t paramAction(uint8_t action, uint8_t id = ALL)  // list of parameters
 	if (id == ALL) for (id = 1; id != N_ALL_PARAMS + 1; id++) paramAction(action, id);  // for all parameters
 
 	switch (id) {    // Visible parameters
-	case VOLUME:  paramAction(action, volume, 0x11, NULL, NULL, -1, 16, false); break;  // Hidden from menu; still used by encoder-hold volume control and EEPROM.
+	case VOLUME:  paramAction(action, volume, 0x11, F("Vol"), NULL, -1, 16, false); break;  // Hidden from menu; still used by encoder-hold volume control and EEPROM.
 	case MODE:    paramAction(action, mode, 0x12, F("Mode"), mode_label, 0, _N(mode_label) - 1, false); break;
 	case FILTER:  paramAction(action, filt, 0x13, F("BW"), filt_label, 0, _N(filt_label) - 1, false); break;
 #ifndef TRUSDX

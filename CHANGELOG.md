@@ -15,7 +15,6 @@
 
 - Завершен transformer config layer:
   `USDX_HW_*`, `USDX_UI_*`, `USDX_TX_*`, `USDX_INPUT_*`, `USDX_DISABLE_*`.
-- Добавлены hardware/UI/size build profiles в `platformio.ini`.
 - Добавлены compile-time guard'ы для несовместимых комбинаций.
 - Удален `CW_DEBUG_DISPLAY`.
 
